@@ -1,0 +1,175 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  CLINICAL_LEAD
+  ADMIN
+}
+
+enum AttemptStatus {
+  CREATED
+  RECORDING
+  UPLOADING
+  PROCESSING
+  CV_PROCESSING
+  CV_COMPLETED
+  CV_PROCESSING_FAILED
+  ASSESSMENT_READY
+  COMPLETED
+  CAPTURE_FAILED
+  UPLOAD_FAILED
+  PROCESSING_FAILED
+  ASSESSMENT_FAILED
+  MANUAL_REVIEW_REQUIRED
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  password       String
+  name           String
+  role           Role            @default(STUDENT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  cohortId       String?
+  cohort         Cohort?         @relation(fields: [cohortId], references: [id])
+  attempts       Attempt[]       @relation("StudentAttempts")
+  scoreOverrides ScoreOverride[] @relation("FacultyOverrides")
+  auditLogs      AuditLog[]
+}
+
+model Cohort {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  users     User[]
+  stations  Station[] @relation("CohortStations")
+}
+
+model Station {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  cohorts     Cohort[] @relation("CohortStations")
+  rubrics     Rubric[]
+  attempts    Attempt[]
+}
+
+model Rubric {
+  id                     String          @id @default(uuid())
+  stationId              String
+  station                Station         @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  version                Int             @default(1)
+  motionEfficiencyWeight Float           @default(0.4)
+  checklistWeight        Float           @default(0.6)
+  active                 Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  checklistSteps         ChecklistStep[]
+  attempts               Attempt[]
+
+  @@unique([stationId, version])
+}
+
+model ChecklistStep {
+  id            String   @id @default(uuid())
+  rubricId      String
+  rubric        Rubric   @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  sequenceOrder Int
+  description   String
+  penaltyPoints Float    @default(5.0)
+
+  @@unique([rubricId, sequenceOrder])
+}
+
+model Attempt {
+  id               String          @id @default(uuid())
+  studentId        String
+  student          User            @relation("StudentAttempts", fields: [studentId], references: [id])
+  stationId        String
+  station          Station         @relation(fields: [stationId], references: [id])
+  rubricId         String
+  rubric           Rubric          @relation(fields: [rubricId], references: [id])
+  status           AttemptStatus   @default(CREATED)
+  videoPath        String?
+  checklistScore   Float?
+  motionScore      Float?
+  compositeScore   Float?
+  feedbackMarkdown String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  trackingSessions TrackingSession[]
+  detectedEvents   DetectedEvent[]
+  detectedErrors   DetectedError[]
+  scoreOverrides   ScoreOverride[]
+}
+
+model TrackingSession {
+  id                  String    @id @default(uuid())
+  attemptId           String
+  attempt             Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  provider            String    @default("MediaPipe-JS")
+  providerVersion     String    @default("1.0.0")
+  processingVersion   String    @default("1.0.0")
+  overallConfidence   Float     @default(1.0)
+  frameCount          Int       @default(0)
+  processedFrameCount Int       @default(0)
+  duration            Float     @default(0.0)
+  qualitySummary      Json      // Stores blur, lighting, occlusion aggregates
+  features            Json      // Stores computed kinematics features
+  landmarks           Json      // Stores high-frequency spatial tracking data (landmarks, centroids)
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+}
+
+model DetectedEvent {
+  id        String   @id @default(uuid())
+  attemptId String
+  attempt   Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  eventType String
+  timestamp Float    // Timestamp in seconds relative to the video start
+  details   String
+}
+
+model DetectedError {
+  id        String   @id @default(uuid())
+  attemptId String
+  attempt   Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  errorType String
+  timestamp Float    // Timestamp in seconds relative to the video start
+  details   String
+}
+
+model ScoreOverride {
+  id            String   @id @default(uuid())
+  attemptId     String
+  attempt       Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  facultyId     String
+  faculty       User     @relation("FacultyOverrides", fields: [facultyId], references: [id])
+  originalScore Float
+  newScore      Float
+  reason        String
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipAddress String
+  action    String
+  resource  String
+  result    String
+  details   String?
+  createdAt DateTime @default(now())
+}
