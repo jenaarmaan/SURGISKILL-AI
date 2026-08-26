@@ -11,13 +11,17 @@ import { authRoutes } from "./routes/auth";
 import { stationRoutes } from "./routes/stations";
 import { attemptRoutes } from "./routes/attempts";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const fastify = Fastify({
   bodyLimit: 1048576 * 100, // 100MB payload size limit for actual video uploads
-  logger: {
-    transport: {
-      target: "pino-pretty",
-    },
-  },
+  logger: isProduction
+    ? true
+    : {
+        transport: {
+          target: "pino-pretty",
+        },
+      },
 });
 
 async function bootstrap() {
