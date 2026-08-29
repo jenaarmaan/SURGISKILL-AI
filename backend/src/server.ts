@@ -25,7 +25,114 @@ const fastify = Fastify({
       },
 });
 
+function validateProductionConfig() {
+  const isProduction = process.env.NODE_ENV === "production";
+  if (!isProduction) {
+    return;
+  }
+
+  console.log("🔒 Enforcing Production Pilot Configuration Gate...");
+
+  const status: Record<string, "CONFIGURED" | "MISSING" | "INVALID"> = {};
+  let hasFailure = false;
+
+  // 1. DATABASE_URL
+  if (!process.env.DATABASE_URL) {
+    status.DATABASE_URL = "MISSING";
+    hasFailure = true;
+  } else {
+    status.DATABASE_URL = "CONFIGURED";
+  }
+
+  // 2. JWT_SECRET
+  if (!process.env.JWT_SECRET) {
+    status.JWT_SECRET = "MISSING";
+    hasFailure = true;
+  } else if (process.env.JWT_SECRET === "surgiskill-super-secret-key-2026") {
+    status.JWT_SECRET = "INVALID";
+    hasFailure = true;
+  } else {
+    status.JWT_SECRET = "CONFIGURED";
+  }
+
+  // 3. AI PROVIDER & GEMINI API KEY
+  const aiProvider = process.env.AI_PROVIDER || "gemini";
+  if (aiProvider === "deterministic-test") {
+    status.AI_PROVIDER = "INVALID";
+    hasFailure = true;
+  } else if (aiProvider === "gemini") {
+    status.AI_PROVIDER = "CONFIGURED";
+  } else {
+    status.AI_PROVIDER = "INVALID";
+    hasFailure = true;
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    status.GEMINI_API_KEY = "MISSING";
+    hasFailure = true;
+  } else {
+    status.GEMINI_API_KEY = "CONFIGURED";
+  }
+
+  // 4. QUEUE PROVIDER & REDIS URL
+  const queueProvider = process.env.QUEUE_PROVIDER || "bullmq";
+  if (queueProvider === "in-memory") {
+    status.QUEUE_PROVIDER = "INVALID";
+    hasFailure = true;
+  } else if (queueProvider === "bullmq") {
+    status.QUEUE_PROVIDER = "CONFIGURED";
+  } else {
+    status.QUEUE_PROVIDER = "INVALID";
+    hasFailure = true;
+  }
+
+  if (!process.env.REDIS_URL) {
+    status.REDIS_URL = "MISSING";
+    hasFailure = true;
+  } else {
+    status.REDIS_URL = "CONFIGURED";
+  }
+
+  // 5. STORAGE PROVIDER & S3 CONFIG
+  const storageProvider = process.env.STORAGE_PROVIDER || "s3";
+  if (storageProvider === "local") {
+    status.STORAGE_PROVIDER = "INVALID";
+    hasFailure = true;
+  } else if (storageProvider === "s3") {
+    status.STORAGE_PROVIDER = "CONFIGURED";
+  } else {
+    status.STORAGE_PROVIDER = "INVALID";
+    hasFailure = true;
+  }
+
+  const s3Keys = ["S3_BUCKET_NAME", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION"];
+  s3Keys.forEach(key => {
+    if (!process.env[key]) {
+      status[key] = "MISSING";
+      hasFailure = true;
+    } else {
+      status[key] = "CONFIGURED";
+    }
+  });
+
+  console.log("=============================================");
+  console.log("PRODUCTION STARTUP CONFIGURATION REPORT:");
+  console.log("=============================================");
+  Object.entries(status).forEach(([key, val]) => {
+    console.log(`${key}: ${val}`);
+  });
+  console.log("=============================================");
+
+  if (hasFailure) {
+    console.error("❌ CRITICAL: Mandatory production dependencies are missing or misconfigured. Application failed to start.");
+    process.exit(1);
+  } else {
+    console.log("🛡️  All production configurations are validated. Starting server...");
+  }
+}
+
 async function bootstrap() {
+  validateProductionConfig();
   try {
     // 1. Configure CORS
     await fastify.register(cors, {

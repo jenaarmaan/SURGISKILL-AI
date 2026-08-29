@@ -8,8 +8,9 @@ This document tracks the completion details of the **SurgiSkill AI** digital OSC
 | :--- | :--- | :--- |
 | **Milestone 1: Digital OSCE Foundation** | **COMPLETE & VERIFIED** | Core authentication, RBAC, stations management, MediaRecorder uploads, secure local video storage, baseline provider, and overrides are fully operational. |
 | **Milestone 2: Computer Vision Capture & Tracking** | **COMPLETE & VERIFIED** | Asynchronous frame quality analyzer, hand/instrument landmark providers, feature extraction service, visual camera guide, diagnostics charts, and idempotency job queue are fully operational. |
-| **Milestone 3: AI Scoring & Multimodal Feedback** | `NOT STARTED` | Multimodal VLM reasoning models and automated checklist alignment are not yet implemented. |
-| **Milestone 4: Enterprise System Orchestration** | `NOT STARTED` | Institutional dashboards, cohort sync tools, LTI, and telemetry dashboards are not yet implemented. |
+| **Milestone 3: AI Scoring & Multimodal Feedback** | **COMPLETE & VERIFIED** | Multimodal VLM reasoning model (Gemini Multimodal Provider) and Zod schema validations are fully integrated. |
+| **Milestone 4: Enterprise System Orchestration** | **COMPLETE & VERIFIED** | Multi-tenancy isolation models, program-assignment rules, role stats dashboards, telemetry loggers, LTI launch structures, and health status indicators are fully integrated. |
+| **Post-M4 Hardening: Pilot Readiness** | **COMPLETE & VERIFIED** | Durable queue interfaces, private S3 compatible stream proxies, exponential rate-limit backoffs, and faculty override disagreement validation matrices are fully integrated. |
 
 ---
 

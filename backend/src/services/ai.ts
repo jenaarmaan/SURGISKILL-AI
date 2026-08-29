@@ -1,5 +1,59 @@
 import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
 import { SYSTEM_ASSESSMENT_PROMPT, generateUserPrompt, PROMPT_VERSION, ANALYSIS_VERSION } from "../prompts/assessment_v1";
+
+export const aiAnalysisResultSchema = z.object({
+  proceduralEvents: z.array(z.object({
+    eventType: z.string(),
+    timestamp: z.number().min(0),
+    endTimestamp: z.number().min(0),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW"]),
+    details: z.string()
+  })),
+  checklistResults: z.array(z.object({
+    checklistStepId: z.string(),
+    status: z.enum(["COMPLETED", "MISSED", "OUT_OF_ORDER", "REPEATED", "UNCERTAIN"]),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"]),
+    startTimestamp: z.number().nullable(),
+    endTimestamp: z.number().nullable(),
+    rationale: z.string(),
+    evidenceIds: z.array(z.string()).optional()
+  })),
+  parameterAssessments: z.array(z.object({
+    parameterId: z.enum(["instrumentHandling", "needleHandling", "movementEfficiency", "proceduralTiming", "proceduralSequence"]),
+    status: z.enum(["AVAILABLE", "PARTIAL", "INSUFFICIENT_DATA", "NOT_CONFIGURED"]),
+    score: z.number().min(0).max(100).nullable(),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"]),
+    rationale: z.string(),
+    evidenceIds: z.array(z.string()).optional()
+  })),
+  detectedErrors: z.array(z.object({
+    category: z.enum(["MISSED_STEP", "OUT_OF_ORDER_STEP", "TECHNIQUE_DEVIATION", "MOVEMENT_INEFFICIENCY", "TIMING_DEVIATION", "INSTRUMENT_HANDLING", "NEEDLE_DEVIATION", "TRACKING_UNCERTAINTY"]),
+    severity: z.enum(["CRITICAL", "MAJOR", "MINOR"]),
+    parameterId: z.string().nullable(),
+    checklistStepId: z.string().nullable(),
+    timestamp: z.number().nullable(),
+    endTimestamp: z.number().nullable(),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW"]),
+    explanation: z.string(),
+    scoreImpact: z.number().nullable()
+  })),
+  evidence: z.array(z.object({
+    id: z.string(),
+    type: z.enum(["VIDEO_INTERVAL", "CV_OBSERVATION", "KINEMATIC_FEATURE"]),
+    startTimestamp: z.number().nullable(),
+    endTimestamp: z.number().nullable(),
+    sourceReference: z.string(),
+    confidence: z.enum(["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"])
+  })).optional().default([]),
+  feedbackCandidates: z.object({
+    wellDone: z.array(z.string()),
+    needsImprovement: z.array(z.string()),
+    practiceRecommendation: z.array(z.string())
+  }),
+  overallConfidence: z.enum(["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"]),
+  qualityGateStatus: z.enum(["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"])
+});
 
 export interface AIAnalysisResult {
   proceduralEvents: Array<{
@@ -102,7 +156,11 @@ export class GeminiMultimodalProvider implements MultimodalProvider {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          throw new Error(`Gemini API returned status ${response.status}: ${await response.text()}`);
+          const status = response.status;
+          const textMsg = await response.text();
+          const err = new Error(`Gemini API returned status ${status}: ${textMsg}`);
+          (err as any).status = status;
+          throw err;
         }
 
         const data = (await response.json()) as any;
@@ -111,13 +169,39 @@ export class GeminiMultimodalProvider implements MultimodalProvider {
           throw new Error("Empty candidate content from Gemini generative model response.");
         }
 
-        // Parse and validate the response
-        const parsed = JSON.parse(text);
-        return parsed as AIAnalysisResult;
+        // Clean JSON markdown code blocks
+        let cleanedText = text.trim();
+        if (cleanedText.startsWith("```json")) {
+          cleanedText = cleanedText.substring(7);
+        } else if (cleanedText.startsWith("```")) {
+          cleanedText = cleanedText.substring(3);
+        }
+        if (cleanedText.endsWith("```")) {
+          cleanedText = cleanedText.substring(0, cleanedText.length - 3);
+        }
+        cleanedText = cleanedText.trim();
+
+        // Parse and validate the response against Zod schema
+        const parsed = JSON.parse(cleanedText);
+        const validated = aiAnalysisResultSchema.parse(parsed);
+        return validated as AIAnalysisResult;
 
       } catch (err: any) {
         lastError = err;
         console.warn(`⚠️ [AI Provider Attempt ${attempt + 1}/${maxRetries + 1} Failed]: ${err.message}`);
+        
+        // Zod validation error is a structural issue, do NOT retry.
+        if (err instanceof z.ZodError) {
+          throw new Error(`Gemini schema validation failed: ${err.message}`);
+        }
+
+        // API status checks
+        const status = err.status;
+        if (status === 400 || status === 401 || status === 403) {
+          // Invalid request or credentials, fail immediately.
+          throw err;
+        }
+
         if (attempt < maxRetries) {
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
         }
@@ -241,16 +325,25 @@ export class DeterministicTestMultimodalProvider implements MultimodalProvider {
       }
     ];
 
-    return {
+    const resultObj = {
       proceduralEvents: [
-        { eventType: "STEP_STARTED", timestamp: 1.2, endTimestamp: 1.5, confidence: "HIGH", details: "Hands positioned inside guided framing boundary." },
-        { eventType: "NEEDLE_ENTRY", timestamp: 5.4, endTimestamp: 6.2, confidence: "HIGH", details: "Suturing needle entered tissue layer." },
-        { eventType: "NEEDLE_EXIT", timestamp: 8.1, endTimestamp: 8.9, confidence: "HIGH", details: "Suturing needle exited tissue layer." },
+        { eventType: "STEP_STARTED", timestamp: 1.2, endTimestamp: 1.5, confidence: "HIGH" as const, details: "Hands positioned inside guided framing boundary." },
+        { eventType: "NEEDLE_ENTRY", timestamp: 5.4, endTimestamp: 6.2, confidence: "HIGH" as const, details: "Suturing needle entered tissue layer." },
+        { eventType: "NEEDLE_EXIT", timestamp: 8.1, endTimestamp: 8.9, confidence: "HIGH" as const, details: "Suturing needle exited tissue layer." },
       ],
       checklistResults,
       parameterAssessments,
-      detectedErrors,
-      evidence,
+      detectedErrors: detectedErrors.map(e => ({
+        ...e,
+        category: e.category as any,
+        severity: e.severity as any,
+        confidence: e.confidence as any
+      })),
+      evidence: evidence.map(ev => ({
+        ...ev,
+        type: ev.type as any,
+        confidence: ev.confidence as any
+      })),
       feedbackCandidates: {
         wellDone: [
           "Excellent hand movement efficiency with low jitter/tremor ratios.",
@@ -265,9 +358,10 @@ export class DeterministicTestMultimodalProvider implements MultimodalProvider {
           "Practice locking forceps grip securely before starting knot loops."
         ]
       },
-      overallConfidence: "HIGH",
-      qualityGateStatus: "HIGH",
+      overallConfidence: "HIGH" as const,
+      qualityGateStatus: "HIGH" as const,
     };
+    return aiAnalysisResultSchema.parse(resultObj) as AIAnalysisResult;
   }
 }
 
@@ -391,17 +485,31 @@ export class AIAssessmentProvider {
     let providerName = "deterministic-test";
     let provider: MultimodalProvider;
 
-    if (process.env.GEMINI_API_KEY && process.env.AI_PROVIDER !== "deterministic-test") {
+    const isProd = process.env.NODE_ENV === "production";
+
+    if (isProd) {
+      const targetProvider = process.env.AI_PROVIDER || "gemini";
+      if (targetProvider === "deterministic-test") {
+        throw new Error("Accidental production use of DeterministicTestMultimodalProvider is prohibited.");
+      }
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is missing in production environment.");
+      }
       providerName = "gemini";
       provider = new GeminiMultimodalProvider();
     } else {
-      provider = new DeterministicTestMultimodalProvider(
-        attempt.rubric.checklistSteps.map(s => ({
-          id: s.id,
-          sequenceOrder: s.sequenceOrder,
-          description: s.description
-        }))
-      );
+      if (process.env.GEMINI_API_KEY && process.env.AI_PROVIDER !== "deterministic-test") {
+        providerName = "gemini";
+        provider = new GeminiMultimodalProvider();
+      } else {
+        provider = new DeterministicTestMultimodalProvider(
+          attempt.rubric.checklistSteps.map(s => ({
+            id: s.id,
+            sequenceOrder: s.sequenceOrder,
+            description: s.description
+          }))
+        );
+      }
     }
 
     // D. Build structured context prompt

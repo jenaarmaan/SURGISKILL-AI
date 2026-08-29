@@ -159,10 +159,13 @@ export async function attemptRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ error: "Video file not found in storage" });
     }
 
-    const filePath = videoStorage.getFilePath(attempt.videoPath);
-    const stream = fs.createReadStream(filePath);
-    reply.header("Content-Type", "video/mp4");
-    return reply.send(stream);
+    try {
+      const stream = await videoStorage.getReadStream(attempt.videoPath);
+      reply.header("Content-Type", "video/mp4");
+      return reply.send(stream);
+    } catch (err: any) {
+      return reply.status(500).send({ error: `Failed to stream video: ${err.message}` });
+    }
   });
 
   // GET /attempts/:id/tracking (Secure Tracking diagnostics JSON endpoint)

@@ -27,7 +27,9 @@ const createAssignmentSchema = z.object({
 const reviewActionSchema = z.object({
   action: z.enum(["ACCEPT", "REJECT", "OVERRIDE"]),
   newScore: z.number().min(0).max(100).optional(),
-  reason: z.string().min(5)
+  reason: z.string().min(5),
+  checklistDisagreements: z.array(z.string()).optional(),
+  parameterDisagreements: z.array(z.string()).optional()
 });
 
 export async function enterpriseRoutes(fastify: FastifyInstance) {
@@ -46,17 +48,32 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
   fastify.get("/health", async (request, reply) => {
     try {
       await fastify.db.$queryRaw`SELECT 1`;
+
+      const isProd = process.env.NODE_ENV === "production";
+      const hasGeminiKey = !!process.env.GEMINI_API_KEY;
+      
+      const isQueueHealthy = process.env.QUEUE_PROVIDER === "bullmq" && !!process.env.REDIS_URL;
+      const isStorageHealthy = process.env.STORAGE_PROVIDER === "s3" && 
+                               !!process.env.S3_BUCKET_NAME && 
+                               !!process.env.S3_ACCESS_KEY_ID && 
+                               !!process.env.S3_SECRET_ACCESS_KEY && 
+                               !!process.env.S3_REGION;
+
       return {
-        status: "OK",
-        database: "CONNECTED",
-        queue: "HEALTHY",
-        storage: "LOCAL_VIDEO_STORAGE_HEALTHY",
+        database: "healthy",
+        queue: isQueueHealthy ? "healthy" : (isProd ? "unhealthy" : "healthy"),
+        storage: isStorageHealthy ? "healthy" : (isProd ? "unhealthy" : "healthy"),
+        ai: hasGeminiKey && process.env.AI_PROVIDER !== "deterministic-test" ? "configured" : "not_configured",
+        application: "healthy",
         timestamp: new Date().toISOString()
       };
     } catch (err: any) {
       return reply.status(500).send({
-        status: "FAIL",
-        database: "UNREACHABLE",
+        database: "unhealthy",
+        queue: "unhealthy",
+        storage: "unhealthy",
+        ai: "not_configured",
+        application: "unhealthy",
         error: err.message
       });
     }
@@ -224,7 +241,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ error: "Forbidden: Authorized review actions only." });
     }
 
-    const { action, newScore, reason } = reviewActionSchema.parse(request.body);
+    const { action, newScore, reason, checklistDisagreements, parameterDisagreements } = reviewActionSchema.parse(request.body);
     const attempt = await fastify.db.attempt.findUnique({
       where: { id: attemptId }
     });
@@ -234,16 +251,21 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
     }
 
     const originalScore = attempt.compositeScore || 0.0;
+    const finalScore = action === "OVERRIDE" && newScore !== undefined ? newScore : originalScore;
+    const variance = originalScore - finalScore;
 
     await fastify.db.$transaction(async (tx) => {
-      // Create override entry
+      // Create override entry with granular disagreements and score variance
       await tx.scoreOverride.create({
         data: {
           attemptId,
           facultyId: user.id,
           originalScore,
-          newScore: action === "OVERRIDE" && newScore !== undefined ? newScore : originalScore,
-          reason
+          newScore: finalScore,
+          reason,
+          checklistDisagreements: checklistDisagreements || [],
+          parameterDisagreements: parameterDisagreements || [],
+          variance
         }
       });
 
@@ -252,7 +274,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
         where: { id: attemptId },
         data: {
           status: "COMPLETED",
-          compositeScore: action === "OVERRIDE" && newScore !== undefined ? newScore : originalScore,
+          compositeScore: finalScore,
           feedbackMarkdown: `${attempt.feedbackMarkdown || ""}\n\n---\n**[Faculty Manual Review Action: ${action}]**: Adjustments finalized by examiner (${user.role} ID: ${user.id}). Reason: *${reason}*`
         }
       });
@@ -267,7 +289,7 @@ export async function enterpriseRoutes(fastify: FastifyInstance) {
       details: `Completed review ${action} override for Attempt:${attemptId}. Reason: ${reason}`
     });
 
-    return { status: "COMPLETED", originalScore, finalScore: action === "OVERRIDE" ? newScore : originalScore };
+    return { status: "COMPLETED", originalScore, finalScore };
   });
 
   // GET /api/v1/dashboards/summary (Aggregates stats by Role)

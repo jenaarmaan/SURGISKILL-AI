@@ -187,16 +187,20 @@ model DetectedError {
 }
 
 model ScoreOverride {
-  id            String   @id @default(uuid())
-  attemptId     String
-  attempt       Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  facultyId     String
-  faculty       User     @relation("FacultyOverrides", fields: [facultyId], references: [id])
-  originalScore Float
-  newScore      Float
-  reason        String
-  createdAt     DateTime @default(now())
+  id                     String   @id @default(uuid())
+  attemptId              String
+  attempt                Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  facultyId              String
+  faculty                User     @relation("FacultyOverrides", fields: [facultyId], references: [id])
+  originalScore          Float
+  newScore               Float
+  reason                 String
+  checklistDisagreements Json?    // Disagreements registered on checklist steps
+  parameterDisagreements Json?    // Disagreements registered on technique parameters
+  variance               Float?   // Score variance (originalScore - newScore)
+  createdAt              DateTime @default(now())
 }
+
 
 model AuditLog {
   id        String   @id @default(uuid())
