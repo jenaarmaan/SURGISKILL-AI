@@ -48,6 +48,15 @@ model User {
   attempts       Attempt[]       @relation("StudentAttempts")
   scoreOverrides ScoreOverride[] @relation("FacultyOverrides")
   auditLogs      AuditLog[]
+
+  institutionId  String?
+  institution    Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  assignments    StationAssignment[] @relation("StudentAssignments")
+  createdAssignments StationAssignment[] @relation("AssignedBy")
+  notifications  Notification[]
+
+  @@index([institutionId])
+  @@index([cohortId])
 }
 
 model Cohort {
@@ -56,6 +65,17 @@ model Cohort {
   createdAt DateTime  @default(now())
   users     User[]
   stations  Station[] @relation("CohortStations")
+
+  institutionId  String?
+  institution    Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  programId      String?
+  program        Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
+  academicPeriod String?
+  active         Boolean         @default(true)
+  assignments    StationAssignment[]
+
+  @@index([institutionId])
+  @@index([programId])
 }
 
 model Station {
@@ -67,6 +87,12 @@ model Station {
   cohorts     Cohort[] @relation("CohortStations")
   rubrics     Rubric[]
   attempts    Attempt[]
+
+  institutionId  String?
+  institution    Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  assignments    StationAssignment[]
+
+  @@index([institutionId])
 }
 
 model Rubric {
@@ -80,6 +106,7 @@ model Rubric {
   createdAt              DateTime        @default(now())
   checklistSteps         ChecklistStep[]
   attempts               Attempt[]
+  assignments            StationAssignment[]
 
   @@unique([stationId, version])
 }
@@ -116,6 +143,10 @@ model Attempt {
   detectedErrors   DetectedError[]
   scoreOverrides   ScoreOverride[]
   aiAssessment     AIAssessment?
+
+  @@index([studentId, stationId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model TrackingSession {
@@ -177,6 +208,10 @@ model AuditLog {
   result    String
   details   String?
   createdAt DateTime @default(now())
+  metadata  Json?
+
+  @@index([userId, action])
+  @@index([createdAt])
 }
 
 model AIAssessment {
@@ -257,4 +292,96 @@ model AIEvidence {
   sourceReference String
   confidence      String       // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
   metadata        Json?
+}
+
+model Institution {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  cohorts     Cohort[]
+  stations    Station[]
+  programs    Program[]
+  ltiConfig   LTIConfig?
+}
+
+model Program {
+  id            String      @id @default(uuid())
+  name          String
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cohorts       Cohort[]
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model StationAssignment {
+  id             String      @id @default(uuid())
+  stationId      String
+  station        Station     @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  cohortId       String?
+  cohort         Cohort?     @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  studentId      String?
+  student        User?       @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  assignedById   String
+  assignedBy     User        @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+  rubricId       String?
+  rubric         Rubric?     @relation(fields: [rubricId], references: [id], onDelete: SetNull)
+  academicPeriod String?
+  dueDate        DateTime?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([cohortId])
+  @@index([studentId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model TelemetryLog {
+  id           String   @id @default(uuid())
+  apiEndpoint  String?
+  latencyMs    Int
+  statusCode   Int?
+  queueLatency Int?
+  cvTimeMs     Int?
+  aiTimeMs     Int?
+  errorMessage String?
+  userId       String?
+  attemptId    String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model LTIConfig {
+  id             String      @id @default(uuid())
+  institutionId  String      @unique
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  issuer         String
+  clientId       String
+  deploymentId   String
+  authEndpoint   String
+  tokenEndpoint  String
+  jwksUri        String
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 }

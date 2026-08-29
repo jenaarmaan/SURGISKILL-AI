@@ -111,4 +111,11 @@ export const api = {
   },
 
   overrideScore: (attemptId: string, newScore: number, reason: string) => request<any>(`/attempts/${attemptId}/override`, { method: "PATCH", body: JSON.stringify({ newScore, reason }) }),
+  getDashboardSummary: () => request<any>("/dashboards/summary", { method: "GET" }),
+  getReviewQueue: (page = 1, limit = 10) => request<any>(`/reviews/queue?page=${page}&limit=${limit}`, { method: "GET" }),
+  submitReviewAction: (attemptId: string, action: string, reason: string, newScore?: number) => request<any>(`/reviews/${attemptId}/action`, { method: "POST", body: JSON.stringify({ action, reason, newScore }) }),
+  getStudentReport: (studentId: string) => request<any>(`/reports/student/${studentId}`, { method: "GET" }),
+  createInstitution: (body: any) => request<any>("/admin/institutions", { method: "POST", body: JSON.stringify(body) }),
+  createCohort: (body: any) => request<any>("/admin/cohorts", { method: "POST", body: JSON.stringify(body) }),
+  createAssignment: (body: any) => request<any>("/admin/assignments", { method: "POST", body: JSON.stringify(body) }),
 };

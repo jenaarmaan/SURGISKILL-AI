@@ -8,7 +8,7 @@ import {
   LogOut, Activity, Award, User, Clock, FileText, 
   Play, StopCircle, RefreshCw, ChevronRight, CheckCircle2, AlertTriangle, ShieldCheck 
 } from "lucide-react";
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -39,6 +39,21 @@ export default function DashboardPage() {
   const [overrideError, setOverrideError] = useState("");
   const [overrideSuccess, setOverrideSuccess] = useState(false);
 
+  // Enterprise / M4 States
+  const [dashboardSummary, setDashboardSummary] = useState<any>(null);
+  const [reviewQueue, setReviewQueue] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"attempts" | "queue" | "assignments">("attempts");
+
+  const [assignStationId, setAssignStationId] = useState("");
+  const [assignCohortId, setAssignCohortId] = useState("");
+  const [assignPeriod, setAssignPeriod] = useState("2026-Fall");
+  const [assignDueDate, setAssignDueDate] = useState("");
+  const [assignSuccess, setAssignSuccess] = useState(false);
+  const [assignError, setAssignError] = useState("");
+
+  const [reviewReason, setReviewReason] = useState("");
+  const [reviewScore, setReviewScore] = useState(80);
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/auth");
@@ -53,8 +68,52 @@ export default function DashboardPage() {
 
       const attemptsList = await api.getAttempts();
       setAttempts(attemptsList);
+
+      const summary = await api.getDashboardSummary().catch(() => null);
+      setDashboardSummary(summary);
+
+      if (user && user.role !== "STUDENT") {
+        const queue = await api.getReviewQueue(1, 10).catch(() => null);
+        setReviewQueue(queue);
+      }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
+    }
+  };
+
+  const handleReviewAction = async (attemptId: string, action: string, score?: number) => {
+    try {
+      await api.submitReviewAction(attemptId, action, reviewReason || "Finalized via Faculty Manual Review Console", score);
+      setReviewReason("");
+      await loadData();
+      if (selectedAttempt && selectedAttempt.id === attemptId) {
+        await selectAttemptDetails(attemptId);
+      }
+    } catch (err: any) {
+      alert("Failed to submit review: " + err.message);
+    }
+  };
+
+  const handleAssignStation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAssignError("");
+    setAssignSuccess(false);
+    if (!assignStationId) {
+      setAssignError("Please select a station to assign.");
+      return;
+    }
+    try {
+      await api.createAssignment({
+        stationId: assignStationId,
+        cohortId: assignCohortId || undefined,
+        academicPeriod: assignPeriod,
+        dueDate: assignDueDate || undefined
+      });
+      setAssignSuccess(true);
+      setAssignStationId("");
+      setAssignCohortId("");
+    } catch (err: any) {
+      setAssignError(err.message || "Failed to create assignment.");
     }
   };
 
@@ -284,70 +343,199 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Attempts List */}
+          {/* Attempts, Queue & Assignment Tabs */}
           <div className="premium-card p-6 flex flex-col gap-4 flex-grow overflow-y-auto">
-            <h2 className="font-bold text-lg flex items-center gap-2 text-white">
-              <FileText size={20} className="text-indigo-400" /> Attempt Records
-            </h2>
-            {attempts.length === 0 ? (
-              <p className="text-slate-500 text-sm">No recorded attempts found.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {attempts.map((att) => {
-                  const dateStr = new Date(att.createdAt).toLocaleDateString();
-                  const isSelected = selectedAttempt && selectedAttempt.id === att.id;
-                  return (
-                    <div
-                      key={att.id}
-                      onClick={() => selectAttemptDetails(att.id)}
-                      className={`p-4 rounded-lg cursor-pointer border transition-all ${
-                        isSelected
-                          ? "bg-indigo-950/30 border-indigo-500/70"
-                          : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-sm text-white">
-                            {att.station?.name || "Suturing Skill"}
-                          </h4>
-                          {user.role !== "STUDENT" && (
-                            <span className="text-xs text-indigo-400 mt-1 block">
-                              By: {att.student?.name || "Student"}
-                            </span>
-                          )}
-                          <span className="text-xs text-slate-500 block mt-1">{dateStr}</span>
-                        </div>
-                        {att.status === "COMPLETED" ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
-                            Score: {att.compositeScore || 0}
-                          </span>
-                        ) : att.status === "CV_PROCESSING" ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-amber-950/60 text-amber-400 border border-amber-500/30 animate-pulse uppercase">
-                            CV Analysis
-                          </span>
-                        ) : (att.status === "CV_COMPLETED" || att.status === "ASSESSMENT_READY") ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-indigo-950/60 text-indigo-400 border border-indigo-500/30 animate-pulse uppercase">
-                            Grading
-                          </span>
-                        ) : att.status === "CV_PROCESSING_FAILED" ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-950/60 text-red-400 border border-red-500/30 uppercase font-semibold">
-                            CV Failed
-                          </span>
-                        ) : att.status === "ASSESSMENT_FAILED" ? (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-950/60 text-red-400 border border-red-500/30">
-                            Failed
-                          </span>
-                        ) : (
-                          <span className="text-xs px-2 py-1 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700 animate-pulse uppercase">
-                            {att.status}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg flex items-center gap-2 text-white">
+                <FileText size={20} className="text-indigo-400" /> OSCE Console
+              </h2>
+            </div>
+
+            {user.role !== "STUDENT" && (
+              <div className="flex gap-2 mb-2 bg-slate-950 p-1 rounded-lg border border-slate-850">
+                <button
+                  onClick={() => setActiveTab("attempts")}
+                  className={`flex-grow text-[11px] font-semibold py-1.5 px-3 rounded transition-all ${
+                    activeTab === "attempts" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Attempts
+                </button>
+                <button
+                  onClick={() => setActiveTab("queue")}
+                  className={`flex-grow text-[11px] font-semibold py-1.5 px-3 rounded flex items-center justify-center gap-1 transition-all ${
+                    activeTab === "queue" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Review Queue
+                  {reviewQueue?.pagination?.total > 0 && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab("assignments")}
+                  className={`flex-grow text-[11px] font-semibold py-1.5 px-3 rounded transition-all ${
+                    activeTab === "assignments" ? "bg-indigo-600 text-white font-bold" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Assign
+                </button>
               </div>
+            )}
+
+            {activeTab === "attempts" && (
+              <>
+                {attempts.length === 0 ? (
+                  <p className="text-slate-500 text-sm">No recorded attempts found.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {attempts.map((att) => {
+                      const dateStr = new Date(att.createdAt).toLocaleDateString();
+                      const isSelected = selectedAttempt && selectedAttempt.id === att.id;
+                      return (
+                        <div
+                          key={att.id}
+                          onClick={() => selectAttemptDetails(att.id)}
+                          className={`p-4 rounded-lg cursor-pointer border transition-all ${
+                            isSelected
+                              ? "bg-indigo-950/30 border-indigo-500/70"
+                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-bold text-sm text-white">
+                                {att.station?.name || "Suturing Skill"}
+                              </h4>
+                              {user.role !== "STUDENT" && (
+                                <span className="text-xs text-indigo-400 mt-1 block">
+                                  By: {att.student?.name || "Student"}
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-500 block mt-1">{dateStr}</span>
+                            </div>
+                            {att.status === "COMPLETED" ? (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                                Score: {att.compositeScore || 0}
+                              </span>
+                            ) : att.status === "CV_PROCESSING" ? (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-amber-950/60 text-amber-400 border border-amber-500/30 animate-pulse uppercase">
+                                CV Analysis
+                              </span>
+                            ) : (att.status === "CV_COMPLETED" || att.status === "ASSESSMENT_READY") ? (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-indigo-950/60 text-indigo-400 border border-indigo-500/30 animate-pulse uppercase">
+                                Grading
+                              </span>
+                            ) : att.status === "CV_PROCESSING_FAILED" ? (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-950/60 text-red-400 border border-red-500/30 uppercase font-semibold">
+                                CV Failed
+                              </span>
+                            ) : att.status === "ASSESSMENT_FAILED" ? (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-red-950/60 text-red-400 border border-red-500/30">
+                                Failed
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700 animate-pulse uppercase">
+                                {att.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "queue" && (
+              <div className="flex flex-col gap-3">
+                {(!reviewQueue || !reviewQueue.items || reviewQueue.items.length === 0) ? (
+                  <p className="text-slate-500 text-sm">No attempts pending manual faculty review.</p>
+                ) : (
+                  reviewQueue.items.map((att: any) => {
+                    const isSelected = selectedAttempt && selectedAttempt.id === att.id;
+                    return (
+                      <div
+                        key={att.id}
+                        onClick={() => selectAttemptDetails(att.id)}
+                        className={`p-4 rounded-lg cursor-pointer border transition-all ${
+                          isSelected
+                            ? "bg-red-950/30 border-red-500/50"
+                            : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-200">{att.station?.name}</h4>
+                            <span className="text-xs text-indigo-400 mt-1 block">By: {att.student?.name}</span>
+                            <span className="text-[10px] text-red-400 font-bold uppercase mt-1 block bg-red-950/40 border border-red-900/30 px-2 py-0.5 rounded w-max">
+                              {att.status.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          <ChevronRight className="text-slate-500" size={16} />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
+            {activeTab === "assignments" && (
+              <form onSubmit={handleAssignStation} className="flex flex-col gap-4 text-xs">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider block">Assign Station to Cohorts</span>
+                
+                {assignSuccess && <p className="text-emerald-400 font-medium">Station assigned successfully!</p>}
+                {assignError && <p className="text-red-400 font-medium">{assignError}</p>}
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-slate-300 font-medium">Select Station</label>
+                  <select
+                    value={assignStationId}
+                    onChange={(e) => setAssignStationId(e.target.value)}
+                    className="premium-input bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                  >
+                    <option value="">-- Choose station --</option>
+                    {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-slate-300 font-medium">Cohort / Group (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Cohort-UUID"
+                    value={assignCohortId}
+                    onChange={(e) => setAssignCohortId(e.target.value)}
+                    className="premium-input bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-slate-300 font-medium">Academic Training Period</label>
+                  <input
+                    type="text"
+                    value={assignPeriod}
+                    onChange={(e) => setAssignPeriod(e.target.value)}
+                    className="premium-input bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-slate-300 font-medium">Due Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={assignDueDate}
+                    onChange={(e) => setAssignDueDate(e.target.value)}
+                    className="premium-input bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                  />
+                </div>
+
+                <button type="submit" className="btn-primary py-2 font-bold mt-2">
+                  Create Assignment
+                </button>
+              </form>
             )}
           </div>
         </div>
@@ -527,6 +715,34 @@ export default function DashboardPage() {
               {/* STUDENT RESULT VIEW PANEL */}
               {user.role === "STUDENT" && (
                 <div className="flex flex-col gap-6">
+                  {/* Progression Trend Chart */}
+                  {dashboardSummary?.progression && dashboardSummary.progression.length > 1 && (
+                    <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                      <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                        <Activity size={16} className="text-indigo-400" /> Longitudinal Skill Progression Trend
+                      </h3>
+                      <div className="w-full h-52">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={dashboardSummary.progression.map((att: any, idx: number) => ({
+                            name: `Run ${idx + 1}`,
+                            score: att.compositeScore
+                          }))}>
+                            <defs>
+                              <linearGradient id="scoreColor" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} />
+                            <YAxis stroke="#94a3b8" fontSize={10} domain={[0, 100]} />
+                            <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#1e293b" }} />
+                            <Area type="monotone" dataKey="score" stroke="#6366f1" fillOpacity={1} fill="url(#scoreColor)" name="OSCE Score" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
                   {/* Checklist Card */}
                   <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
                     <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -910,6 +1126,44 @@ export default function DashboardPage() {
                           No score overrides have been applied by Faculty examiners.
                         </div>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FACULTY MANUAL REVIEW QUEUE ACTIONS */}
+              {user.role !== "STUDENT" && ["AI_PROCESSING_FAILED", "AI_INSUFFICIENT_DATA", "MANUAL_REVIEW_REQUIRED"].includes(selectedAttempt.status) && (
+                <div className="p-6 rounded-lg bg-red-950/20 border border-red-500/20 flex flex-col gap-4">
+                  <h4 className="text-sm font-semibold text-red-400 flex items-center gap-2">
+                    <ShieldCheck size={18} /> Manual Review Queue Action Board
+                  </h4>
+                  <p className="text-xs text-slate-400 font-normal">
+                    This attempt requires manual faculty intervention. Review the spatial timeline, kinematics, and video above.
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs text-slate-300 font-semibold">Review Comment / Rationale</label>
+                      <textarea
+                        rows={2}
+                        value={reviewReason}
+                        onChange={(e) => setReviewReason(e.target.value)}
+                        placeholder="e.g. Validated checklist sequence manually, verified perpendicular entries."
+                        className="premium-input text-xs w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => handleReviewAction(selectedAttempt.id, "ACCEPT")}
+                        className="text-xs bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded font-bold"
+                      >
+                        Accept Score
+                      </button>
+                      <button
+                        onClick={() => handleReviewAction(selectedAttempt.id, "REJECT")}
+                        className="text-xs bg-red-755 hover:bg-red-655 px-4 py-2 rounded font-bold"
+                      >
+                        Reject Attempt
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -10,6 +10,7 @@ import authPlugin from "./plugins/auth";
 import { authRoutes } from "./routes/auth";
 import { stationRoutes } from "./routes/stations";
 import { attemptRoutes } from "./routes/attempts";
+import { enterpriseRoutes } from "./routes/enterprise";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -91,6 +92,7 @@ async function bootstrap() {
         instance.register(authRoutes, { prefix: "/auth" });
         instance.register(stationRoutes, { prefix: "/stations" });
         instance.register(attemptRoutes, { prefix: "/attempts" });
+        instance.register(enterpriseRoutes);
       },
       { prefix: "/api/v1" }
     );

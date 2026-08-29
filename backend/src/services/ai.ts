@@ -16,6 +16,7 @@ export interface AIAnalysisResult {
     startTimestamp: number | null;
     endTimestamp: number | null;
     rationale: string;
+    evidenceIds?: string[];
   }>;
   parameterAssessments: Array<{
     parameterId: string;
@@ -23,6 +24,7 @@ export interface AIAnalysisResult {
     score: number | null;
     confidence: string;
     rationale: string;
+    evidenceIds?: string[];
   }>;
   detectedErrors: Array<{
     category: string;
@@ -103,7 +105,7 @@ export class GeminiMultimodalProvider implements MultimodalProvider {
           throw new Error(`Gemini API returned status ${response.status}: ${await response.text()}`);
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as any;
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) {
           throw new Error("Empty candidate content from Gemini generative model response.");
