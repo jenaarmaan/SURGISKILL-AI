@@ -22,6 +22,10 @@ enum AttemptStatus {
   CV_PROCESSING
   CV_COMPLETED
   CV_PROCESSING_FAILED
+  AI_PROCESSING
+  AI_COMPLETED
+  AI_PROCESSING_FAILED
+  AI_INSUFFICIENT_DATA
   ASSESSMENT_READY
   COMPLETED
   CAPTURE_FAILED
@@ -111,6 +115,7 @@ model Attempt {
   detectedEvents   DetectedEvent[]
   detectedErrors   DetectedError[]
   scoreOverrides   ScoreOverride[]
+  aiAssessment     AIAssessment?
 }
 
 model TrackingSession {
@@ -172,4 +177,84 @@ model AuditLog {
   result    String
   details   String?
   createdAt DateTime @default(now())
+}
+
+model AIAssessment {
+  id                  String                  @id @default(uuid())
+  attemptId           String                  @unique
+  attempt             Attempt                 @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  provider            String                  // "gemini" or "deterministic-test"
+  model               String                  // e.g. "gemini-1.5-flash"
+  modelVersion        String?
+  analysisVersion     String                  @default("1.0.0")
+  promptVersion       String                  @default("1.0.0")
+  cvProvider          String                  @default("MediaPipe-JS-Engine")
+  cvProcessingVersion String                  @default("1.0.0")
+  overallConfidence   String                  // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  qualityGateStatus   String                  // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  checklistScore      Float?
+  motionScore         Float?
+  compositeScore      Float?
+  feedbackMarkdown    String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  checklistAssessments AIChecklistAssessment[]
+  parameterAssessments AIParameterAssessment[]
+  detectedErrors       AIDetectedError[]
+  evidence             AIEvidence[]
+}
+
+model AIChecklistAssessment {
+  id              String       @id @default(uuid())
+  aiAssessmentId  String
+  aiAssessment    AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  checklistStepId String
+  status          String       // "COMPLETED", "MISSED", "OUT_OF_ORDER", "REPEATED", "UNCERTAIN"
+  confidence      String       // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  startTimestamp  Float?
+  endTimestamp    Float?
+  rationale       String
+  evidenceIds     String[]
+}
+
+model AIParameterAssessment {
+  id               String       @id @default(uuid())
+  aiAssessmentId   String
+  aiAssessment     AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  parameterId      String       // e.g. "needleHandling", "instrumentHandling"
+  status           String       // "AVAILABLE", "PARTIAL", "INSUFFICIENT_DATA", "NOT_CONFIGURED"
+  score            Float?
+  confidence       String       // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  rationale        String
+  evidenceIds      String[]
+  detectedErrorIds String[]
+}
+
+model AIDetectedError {
+  id              String       @id @default(uuid())
+  aiAssessmentId  String
+  aiAssessment    AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  category        String       // "MISSED_STEP", "OUT_OF_ORDER_STEP", "TECHNIQUE_DEVIATION", etc.
+  severity        String       // "CRITICAL", "MAJOR", "MINOR"
+  parameterId     String?
+  checklistStepId String?
+  timestamp       Float?
+  endTimestamp    Float?
+  confidence      String       // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  evidenceIds     String[]
+  explanation     String
+  scoreImpact     Float?
+}
+
+model AIEvidence {
+  id              String       @id @default(uuid())
+  aiAssessmentId  String
+  aiAssessment    AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  type            String       // "VIDEO_INTERVAL", "CV_OBSERVATION", "KINEMATIC_FEATURE"
+  startTimestamp  Float?
+  endTimestamp    Float?
+  sourceReference String
+  confidence      String       // "HIGH", "MEDIUM", "LOW", "INSUFFICIENT_DATA"
+  metadata        Json?
 }

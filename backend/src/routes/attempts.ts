@@ -113,6 +113,14 @@ export async function attemptRoutes(fastify: FastifyInstance) {
           },
           orderBy: { createdAt: "desc" },
         },
+        aiAssessment: {
+          include: {
+            checklistAssessments: true,
+            parameterAssessments: true,
+            detectedErrors: true,
+            evidence: true
+          }
+        }
       },
     });
 

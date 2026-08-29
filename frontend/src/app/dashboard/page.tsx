@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const replayVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Faculty override state
   const [overrideScore, setOverrideScore] = useState<number>(85);
@@ -163,6 +164,14 @@ export default function DashboardPage() {
       setOverrideScore(details.compositeScore || 85);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const seekToTimestamp = (seconds: number) => {
+    if (replayVideoRef.current) {
+      replayVideoRef.current.currentTime = seconds;
+      replayVideoRef.current.scrollIntoView({ behavior: "smooth" });
+      replayVideoRef.current.play().catch(() => {});
     }
   };
 
@@ -497,14 +506,285 @@ export default function DashboardPage() {
 
               {/* Secure Video Streaming Replay */}
               {selectedAttempt.videoPath && (
-                <div className="p-4 rounded-lg bg-slate-900/60 border border-slate-800 flex flex-col gap-2">
-                  <span className="text-xs text-slate-400 font-semibold">Recorded Suture Technique Video (Protected Access)</span>
+                <div className="p-4 rounded-lg bg-slate-900/60 border border-slate-850 flex flex-col gap-2">
+                  <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Recorded Suture Technique Video (Protected Access)
+                  </span>
                   <video 
+                    ref={replayVideoRef}
                     controls
                     className="w-full max-h-80 rounded-lg bg-black border border-slate-800"
                     src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1"}/attempts/${selectedAttempt.id}/video`}
                     crossOrigin="use-credentials"
                   />
+                  <p className="text-[10px] text-slate-500">
+                    💡 Click on checklist time intervals or error offset badges to navigate directly to that video frame.
+                  </p>
+                </div>
+              )}
+
+              {/* STUDENT RESULT VIEW PANEL */}
+              {user.role === "STUDENT" && (
+                <div className="flex flex-col gap-6">
+                  {/* Checklist Card */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                    <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-indigo-400" /> Checklist Steps Progress
+                    </h3>
+                    <div className="flex flex-col gap-3">
+                      {(selectedAttempt.aiAssessment?.checklistAssessments || []).length > 0 ? (
+                        selectedAttempt.aiAssessment.checklistAssessments.map((chk: any) => {
+                          const stepMatch = selectedAttempt.rubric?.checklistSteps?.find((s: any) => s.id === chk.checklistStepId);
+                          const isOk = chk.status === "COMPLETED";
+                          return (
+                            <div key={chk.id} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-900 flex justify-between items-center gap-4">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`w-2 h-2 rounded-full ${isOk ? "bg-emerald-500" : "bg-red-500"}`} />
+                                <span className="text-xs font-medium text-slate-300">
+                                  {stepMatch?.description || "Suturing execution step"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {chk.startTimestamp !== null && (
+                                  <button
+                                    onClick={() => seekToTimestamp(chk.startTimestamp)}
+                                    className="text-[10px] text-indigo-400 bg-indigo-950/40 border border-indigo-900/50 hover:bg-indigo-900/30 px-2 py-0.5 rounded transition-all"
+                                  >
+                                    Replay {chk.startTimestamp}s
+                                  </button>
+                                )}
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                  isOk ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"
+                                }`}>
+                                  {chk.status}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        selectedAttempt.rubric?.checklistSteps?.map((step: any) => (
+                          <div key={step.id} className="p-3.5 rounded-lg bg-slate-950/60 border border-slate-900 flex justify-between items-center text-xs">
+                            <span className="text-slate-400">{step.description}</span>
+                            <span className="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded uppercase font-bold">
+                              PENDING
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Parameter breakdowns progress bars */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                    <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                      <Activity size={16} className="text-indigo-400" /> Parameter Breakdowns
+                    </h3>
+                    <div className="flex flex-col gap-4">
+                      {(selectedAttempt.aiAssessment?.parameterAssessments || []).length > 0 ? (
+                        selectedAttempt.aiAssessment.parameterAssessments.map((param: any) => (
+                          <div key={param.id} className="flex flex-col gap-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-300 font-medium capitalize">
+                                {param.parameterId.replace(/([A-Z])/g, " $1")}
+                              </span>
+                              <span className="text-indigo-400 font-bold">{param.score !== null ? `${param.score}/100` : "INSUFFICIENT"}</span>
+                            </div>
+                            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-900">
+                              <div 
+                                className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${param.score || 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-500">Parameters assessment details not available.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Evidence & feedback Markdown comments (Google quality layout) */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-855">
+                    <h3 className="text-sm font-bold text-slate-200 mb-3">Structured Surgical Feedback</h3>
+                    <div className="prose prose-invert text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {selectedAttempt.feedbackMarkdown || "Feedback report processing."}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FACULTY / CLINICAL LEAD REVIEW PANEL */}
+              {user.role !== "STUDENT" && (
+                <div className="flex flex-col gap-6">
+                  {/* System diagnostics card */}
+                  <div className="p-5 rounded-lg bg-indigo-950/10 border border-indigo-900/20 flex flex-wrap justify-between items-center gap-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">OSCE Evaluation Layer</span>
+                      <span className="text-xs text-slate-300 font-semibold flex items-center gap-1.5">
+                        Provider: <span className="text-indigo-400">{selectedAttempt.aiAssessment?.provider || "deterministic-test"}</span>
+                        &bull; Model: <span className="text-indigo-400">{selectedAttempt.aiAssessment?.model || "vlm-evaluator-v1"}</span>
+                      </span>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-500 uppercase block font-bold">Quality Gate</span>
+                        <span className={`text-xs font-bold ${
+                          selectedAttempt.aiAssessment?.qualityGateStatus === "HIGH" ? "text-emerald-400" : "text-amber-400"
+                        }`}>
+                          {selectedAttempt.aiAssessment?.qualityGateStatus || "HIGH"}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-500 uppercase block font-bold">Prompt Version</span>
+                        <span className="text-xs text-slate-300 font-semibold">
+                          v{selectedAttempt.aiAssessment?.promptVersion || "1.0.0"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checklist Table */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                    <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-indigo-400" /> AI-Aligned Checklist Progress
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                            <th className="pb-3 pr-2">Step</th>
+                            <th className="pb-3 pr-2">Status</th>
+                            <th className="pb-3 pr-2">Confidence</th>
+                            <th className="pb-3 pr-2 text-right">Interval</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                          {(selectedAttempt.aiAssessment?.checklistAssessments || []).map((chk: any) => {
+                            const stepMatch = selectedAttempt.rubric?.checklistSteps?.find((s: any) => s.id === chk.checklistStepId);
+                            const isOk = chk.status === "COMPLETED";
+                            return (
+                              <tr key={chk.id} className="hover:bg-slate-900/30 transition-colors">
+                                <td className="py-3 pr-2 font-medium text-slate-300 max-w-xs">
+                                  <div>
+                                    <p>{stepMatch?.description || "Procedural Step"}</p>
+                                    <p className="text-[10px] text-slate-500 font-normal mt-0.5 leading-relaxed">{chk.rationale}</p>
+                                  </div>
+                                </td>
+                                <td className="py-3 pr-2">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    isOk ? "bg-emerald-950 text-emerald-400" : "bg-red-950 text-red-400"
+                                  }`}>
+                                    {chk.status}
+                                  </span>
+                                </td>
+                                <td className="py-3 pr-2">
+                                  <span className="text-[10px] text-slate-400 uppercase font-semibold">{chk.confidence}</span>
+                                </td>
+                                <td className="py-3 pr-2 text-right">
+                                  {chk.startTimestamp !== null ? (
+                                    <button 
+                                      onClick={() => seekToTimestamp(chk.startTimestamp)}
+                                      className="text-[10px] text-indigo-400 font-bold bg-indigo-950/40 hover:bg-indigo-900/30 border border-indigo-900/40 px-2 py-0.5 rounded transition-all"
+                                    >
+                                      {chk.startTimestamp}s
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-600 text-[10px]">&mdash;</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Evaluated Parameters */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                    <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                      <Activity size={16} className="text-indigo-400" /> AI evaluated Rubric Parameters
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                            <th className="pb-3 pr-2">Parameter</th>
+                            <th className="pb-3 pr-2">Score</th>
+                            <th className="pb-3 pr-2">Confidence</th>
+                            <th className="pb-3 pr-2">AI Rationale Comments</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50 text-slate-300">
+                          {(selectedAttempt.aiAssessment?.parameterAssessments || []).map((param: any) => (
+                            <tr key={param.id} className="hover:bg-slate-900/30 transition-colors">
+                              <td className="py-3 pr-2 font-medium capitalize max-w-xs">
+                                {param.parameterId.replace(/([A-Z])/g, " $1")}
+                              </td>
+                              <td className="py-3 pr-2 font-bold text-indigo-400">
+                                {param.score !== null ? `${param.score}/100` : "INSUFFICIENT"}
+                              </td>
+                              <td className="py-3 pr-2">
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold">{param.confidence}</span>
+                              </td>
+                              <td className="py-3 pr-2 text-xs text-slate-400 leading-relaxed font-normal">
+                                {param.rationale}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Detected Technical Errors */}
+                  <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                    <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                      <AlertTriangle size={16} className="text-red-400" /> Detected Technique Deviations
+                    </h3>
+                    <div className="flex flex-col gap-3">
+                      {(selectedAttempt.aiAssessment?.detectedErrors || []).length > 0 ? (
+                        selectedAttempt.aiAssessment.detectedErrors.map((err: any) => (
+                          <div key={err.id} className="p-4 rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
+                                  err.severity === "CRITICAL" ? "bg-red-950 text-red-400 border border-red-500/25" : "bg-amber-950 text-amber-400 border border-amber-500/25"
+                                }`}>
+                                  {err.severity}
+                                </span>
+                                <span className="text-xs font-semibold text-slate-200">
+                                  {err.category.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {err.scoreImpact !== null && (
+                                  <span className="text-[10px] text-red-400 font-bold bg-red-950/30 px-1.5 py-0.5 rounded border border-red-900/35">
+                                    Impact: {err.scoreImpact} pts
+                                  </span>
+                                )}
+                                {err.timestamp !== null && (
+                                  <button
+                                    onClick={() => seekToTimestamp(err.timestamp)}
+                                    className="text-[10px] text-indigo-400 bg-indigo-950/40 hover:bg-indigo-900/30 border border-indigo-900/40 px-2 py-0.5 rounded"
+                                  >
+                                    Seek to {err.timestamp}s
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-400 leading-relaxed font-normal">
+                              {err.explanation}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-500">No technical errors or path deviations observed by the AI evaluator.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -536,9 +816,12 @@ export default function DashboardPage() {
                     {selectedAttempt.detectedEvents?.map((evt: any) => (
                       <div key={evt.id} className="text-xs flex gap-3 items-start border-l border-indigo-500/30 pl-4 relative">
                         <span className="absolute -left-1.5 top-1 w-3 h-3 rounded-full bg-indigo-600 border border-indigo-400" />
-                        <span className="text-indigo-400 font-bold tracking-tight bg-slate-800 px-1.5 py-0.5 rounded">
+                        <button
+                          onClick={() => seekToTimestamp(evt.timestamp)}
+                          className="text-indigo-400 font-bold tracking-tight bg-slate-800 px-1.5 py-0.5 rounded"
+                        >
                           {evt.timestamp}s
-                        </span>
+                        </button>
                         <div>
                           <p className="font-bold text-white">{evt.eventType}</p>
                           <p className="text-slate-400 mt-0.5">{evt.details}</p>
@@ -548,9 +831,12 @@ export default function DashboardPage() {
                     {selectedAttempt.detectedErrors?.map((err: any) => (
                       <div key={err.id} className="text-xs flex gap-3 items-start border-l border-red-500/30 pl-4 relative">
                         <span className="absolute -left-1.5 top-1 w-3 h-3 rounded-full bg-red-600 border border-red-400" />
-                        <span className="text-red-400 font-bold tracking-tight bg-slate-800 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        <button
+                          onClick={() => seekToTimestamp(err.timestamp)}
+                          className="text-red-400 font-bold tracking-tight bg-slate-800 px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                        >
                           <AlertTriangle size={10} /> {err.timestamp}s
-                        </span>
+                        </button>
                         <div>
                           <p className="font-bold text-white">{err.errorType}</p>
                           <p className="text-slate-400 mt-0.5">{err.details}</p>
@@ -561,15 +847,73 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* VLM Feedback Report */}
-              <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-800">
-                <h4 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                  <FileText size={16} /> Explainable Feedback & checklist Analysis
-                </h4>
-                <div className="prose prose-invert text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-                  {selectedAttempt.feedbackMarkdown || "Feedback report processing."}
+              {/* CLINICAL LEAD VALIDATION COMPARISON BOARD */}
+              {user.role === "CLINICAL_LEAD" && (
+                <div className="p-6 rounded-lg bg-slate-900/60 border border-slate-850">
+                  <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-indigo-400" /> Clinical Lead Validation Board
+                  </h3>
+                  
+                  {/* Side-by-Side Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Card: AI assessment */}
+                    <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col gap-3">
+                      <span className="text-xs text-indigo-400 font-semibold">AI Generative Assessment</span>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <span className="text-slate-500 block font-medium">Checklist Score</span>
+                          <span className="text-slate-200 font-bold">{selectedAttempt.aiAssessment?.checklistScore !== null ? `${selectedAttempt.aiAssessment.checklistScore}` : "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block font-medium">Motion Score</span>
+                          <span className="text-slate-200 font-bold">{selectedAttempt.aiAssessment?.motionScore !== null ? `${selectedAttempt.aiAssessment.motionScore}` : "N/A"}</span>
+                        </div>
+                        <div className="col-span-2 border-t border-slate-900/80 pt-2 flex justify-between">
+                          <span className="text-slate-400 font-semibold">AI Calculated Score</span>
+                          <span className="text-indigo-400 font-bold">{selectedAttempt.aiAssessment?.compositeScore || selectedAttempt.compositeScore}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Card: Faculty Overridden Score */}
+                    <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col gap-3">
+                      <span className="text-xs text-indigo-400 font-semibold">Faculty Override Assessment</span>
+                      {selectedAttempt.scoreOverrides && selectedAttempt.scoreOverrides.length > 0 ? {
+                        ...(() => {
+                          const latest = selectedAttempt.scoreOverrides[0];
+                          const variance = Math.abs(latest.newScore - (selectedAttempt.aiAssessment?.compositeScore || latest.originalScore));
+                          return (
+                            <div className="flex flex-col gap-2 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Overridden By:</span>
+                                <span className="text-slate-300 font-semibold">{latest.faculty?.name || "Faculty Evaluator"}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Override Score:</span>
+                                <span className="text-slate-200 font-bold">{latest.newScore}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Score Variance:</span>
+                                <span className={`font-bold ${variance > 10 ? "text-amber-400" : "text-emerald-400"}`}>
+                                  {variance > 0 ? `+${variance} points` : "Perfect alignment"}
+                                </span>
+                              </div>
+                              <div className="border-t border-slate-900/80 pt-2 flex flex-col gap-1">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Clinical Reason</span>
+                                <p className="text-[11px] text-slate-400 italic">"{latest.reason}"</p>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      } : (
+                        <div className="h-full flex items-center justify-center text-xs text-slate-500 italic">
+                          No score overrides have been applied by Faculty examiners.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* FACULTY SCORE OVERRIDE CONSOLE */}
               {user.role !== "STUDENT" && selectedAttempt.status === "COMPLETED" && (
@@ -577,12 +921,12 @@ export default function DashboardPage() {
                   <h4 className="text-sm font-semibold text-indigo-400 flex items-center gap-2">
                     <ShieldCheck size={18} /> Faculty Grading Override Boundary
                   </h4>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 font-normal">
                     As an authorized faculty examiner, you can adjust the student's composite score. Overrides require a written clinical reason and are logged directly to the immutable system audit ledger.
                   </p>
-
-                  {overrideError && <p className="text-xs text-red-400">{overrideError}</p>}
-                  {overrideSuccess && <p className="text-xs text-emerald-400">Score overridden and logged successfully.</p>}
+                  
+                  {overrideError && <p className="text-xs text-red-400 font-medium">{overrideError}</p>}
+                  {overrideSuccess && <p className="text-xs text-emerald-400 font-medium">Score overridden and logged successfully.</p>}
 
                   <form onSubmit={handleOverride} className="flex flex-col md:flex-row gap-4 items-end">
                     <div className="w-24 flex flex-col gap-1.5">
@@ -608,7 +952,7 @@ export default function DashboardPage() {
                         required
                       />
                     </div>
-                    <button type="submit" className="btn-primary py-2 px-6 text-sm">
+                    <button type="submit" className="btn-primary py-2 px-6 text-sm font-semibold">
                       Apply Override
                     </button>
                   </form>

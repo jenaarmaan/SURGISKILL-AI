@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
 import { PrismaClient } from "@prisma/client";
 import { cvTrackingProvider, featureExtractionService } from "./cv";
-import { BaselineAssessmentProvider } from "./assessment";
+import { AIAssessmentProvider } from "./ai";
 import { logAuditAction } from "./audit";
 
 const db = new PrismaClient();
-const assessmentProvider = new BaselineAssessmentProvider(db);
+const assessmentProvider = new AIAssessmentProvider(db);
 
 export class CVQueueService extends EventEmitter {
   private activeJobs: Set<string> = new Set();
@@ -131,71 +131,55 @@ export class CVQueueService extends EventEmitter {
 
   private async runAssessmentScoring(attemptId: string, tracking: any, features: any) {
     try {
-      console.log(`📊 [CV Processing Worker] Transitioning to Scoring Engine for Attempt: ${attemptId}`);
+      console.log(`📊 [CV Processing Worker] Transitioning to AI Assessment for Attempt: ${attemptId}`);
 
       await db.attempt.update({
         where: { id: attemptId },
-        data: { status: "ASSESSMENT_READY" },
+        data: { status: "AI_PROCESSING" },
       });
 
-      // We run the assessment score calculations utilizing the extracted CV features
-      const baseResult = await assessmentProvider.generateAssessment(attemptId);
+      // Run AI assessment (which internally evaluates parameters, checklist steps, and updates attempt status to COMPLETED)
+      const aiResult = await assessmentProvider.runAssessment(attemptId);
 
-      // Save scoring details and transition to final COMPLETED status
-      await db.$transaction([
-        // Create timeline events
-        ...baseResult.detectedEvents.map((evt) =>
-          db.detectedEvent.create({
-            data: {
-              attemptId,
-              eventType: evt.eventType,
-              timestamp: evt.timestamp,
-              details: evt.details,
-            },
-          })
-        ),
-        // Create errors
-        ...baseResult.detectedErrors.map((err) =>
-          db.detectedError.create({
-            data: {
-              attemptId,
-              errorType: err.errorType,
-              timestamp: err.timestamp,
-              details: err.details,
-            },
-          })
-        ),
-        // Update final scoring values
-        db.attempt.update({
-          where: { id: attemptId },
-          data: {
-            status: "COMPLETED",
-            checklistScore: baseResult.checklistScore,
-            motionScore: baseResult.motionScore,
-            compositeScore: baseResult.compositeScore,
-            feedbackMarkdown: baseResult.feedbackMarkdown,
-          },
-        }),
-      ]);
+      if (aiResult.status === "AI_INSUFFICIENT_DATA") {
+        await logAuditAction(db, {
+          userId: null,
+          ipAddress: "127.0.0.1",
+          action: "AI_ASSESSMENT_INSUFFICIENT",
+          resource: `Attempt:${attemptId}`,
+          result: "SUCCESS",
+          details: `AI assessment skipped due to insufficient video quality or frame occlusions.`,
+        });
+        return;
+      }
 
       await logAuditAction(db, {
         userId: null,
         ipAddress: "127.0.0.1",
-        action: "ASSESSMENT_COMPLETED",
+        action: "AI_ASSESSMENT_COMPLETED",
         resource: `Attempt:${attemptId}`,
         result: "SUCCESS",
-        details: `Final clinical scoring generated from CV tracking metrics. Composite: ${baseResult.compositeScore}`,
+        details: `AI assessment and sequence alignments completed. Composite: ${aiResult.compositeScore}`,
       });
 
     } catch (err: any) {
-      console.error(`❌ [CV Processing Worker] Scoring failure for Attempt: ${attemptId}:`, err.message);
+      console.error(`❌ [CV Processing Worker] AI assessment failure for Attempt: ${attemptId}:`, err.message);
 
       await db.attempt.update({
         where: { id: attemptId },
         data: { 
-          status: "ASSESSMENT_FAILED",
-          feedbackMarkdown: `### Clinical Scoring Failed\nError: ${err.message}`,
+          status: "AI_PROCESSING_FAILED",
+          feedbackMarkdown: `### AI Assessment Failed\nError: ${err.message}`,
         },
+      });
+
+      await logAuditAction(db, {
+        userId: null,
+        ipAddress: "127.0.0.1",
+        action: "AI_ASSESSMENT_FAILED",
+        resource: `Attempt:${attemptId}`,
+        result: "FAILED",
+        details: `AI processing failed: ${err.message}`,
       });
     }
   }
