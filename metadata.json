@@ -1,0 +1,6 @@
+{
+  "name": "SurgiSkill AI - Surgical Skills Intelligence & Digital OSCE",
+  "description": "AI-powered surgical skills intelligence, suturing training, objective skill assessment, real-time computer vision guidance, and digital OSCE examination platform.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,516 @@
+// SurgiSkill AI - Production Relational Schema
+// Multi-tenant Surgical Skills Intelligence & Digital OSCE Platform
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  CLINICAL_LEAD
+  INSTITUTION_ADMIN
+  SUPER_ADMIN
+}
+
+enum AttemptStatus {
+  CREATED
+  RECORDING
+  UPLOADING
+  PROCESSING
+  CV_PROCESSING
+  CV_COMPLETED
+  AI_PROCESSING
+  ASSESSMENT_READY
+  COMPLETED
+  CAPTURE_FAILED
+  UPLOAD_FAILED
+  PROCESSING_FAILED
+  CV_PROCESSING_FAILED
+  AI_PROCESSING_FAILED
+  AI_INSUFFICIENT_DATA
+  MANUAL_REVIEW_REQUIRED
+}
+
+enum ComplianceStatus {
+  GREEN
+  YELLOW
+  RED
+  GRAY
+}
+
+enum ProceduralState {
+  WORKSPACE_DETECTED
+  WOUND_DETECTED
+  NEEDLE_ACQUIRED
+  NEEDLE_ORIENTED
+  APPROACHING_WOUND
+  ENTRY_DETECTED
+  NEEDLE_DRIVE
+  EXIT_DETECTED
+  THREAD_PULL
+  LOOP_FORMATION
+  KNOT_OR_THROW
+  STITCH_COMPLETED
+  PROCEDURE_COMPLETED
+  UNKNOWN_STATE
+  LOW_CONFIDENCE_STATE
+  TRACKING_LOST
+  PROCEDURE_INTERRUPTED
+  MANUAL_REVIEW_REQUIRED
+}
+
+enum IntegrationType {
+  WEBCAM
+  USB_CAMERA
+  LAPAROSCOPIC_CAMERA
+  STEREO_DEPTH_CAMERA
+  FORCE_SENSOR
+  ROBOTIC_TELEMETRY
+  VIDEO_CAPTURE_SERVICE
+  OBJECT_STORAGE
+  AI_PROVIDER
+  QUEUE_PROVIDER
+}
+
+enum IntegrationStatus {
+  CONFIGURED
+  CONNECTED
+  VERIFIED
+  UNAVAILABLE
+  FAILED
+}
+
+model Institution {
+  id          String    @id @default(uuid())
+  name        String
+  code        String    @unique
+  domain      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  programs    Program[]
+  users       User[]
+  stations    Station[]
+  integrations DeviceIntegration[]
+  auditLogs   AuditLog[]
+}
+
+model Program {
+  id            String      @id @default(uuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  specialty     String      // e.g., General Surgery, OB/GYN, Plastic Surgery
+  code          String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cohorts       Cohort[]
+  stations      Station[]
+}
+
+model Cohort {
+  id          String      @id @default(uuid())
+  programId   String
+  program     Program     @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name        String      // e.g., "Class of 2026 PGY-1"
+  academicYear String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  users       User[]
+  assignments StationAssignment[]
+  osceExams   OSCEAssignment[]
+}
+
+model User {
+  id             String         @id @default(uuid())
+  institutionId  String
+  institution    Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  cohortId       String?
+  cohort         Cohort?        @relation(fields: [cohortId], references: [id])
+  email          String         @unique
+  passwordHash   String
+  fullName       String
+  medicalDegree  String?        // MD, DO, MBBS
+  academicRank   String?        // PGY-2 Resident, Clinical Assistant Professor
+  role           Role           @default(STUDENT)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  attempts       Attempt[]
+  facultyReviews FacultyReview[]
+  scoreOverrides ScoreOverride[]
+  annotations    FacultyAnnotation[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  @@index([institutionId, role])
+}
+
+model Station {
+  id                  String                    @id @default(uuid())
+  institutionId       String
+  institution         Institution               @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  programId           String?
+  program             Program?                  @relation(fields: [programId], references: [id])
+  title               String
+  code                String                    @unique
+  category            String                    // Open suturing, Laparoscopic, Microsurgery
+  difficulty          String                    // Fundamental, Intermediate, Advanced
+  description         String
+  clinicalContext     String
+  learningObjectives  String[]
+  requiredInstruments String[]
+  trainingModelType   String                    // Synthetic tissue pad, Simulated silicone wound
+  cameraSetup         String                    // Top-down 90 deg, 45 deg oblique
+  passThreshold       Float                     @default(75.0)
+  timeLimitSeconds    Int                       @default(600)
+  isArchived          Boolean                   @default(false)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  assignments         StationAssignment[]
+  rubricVersions      RubricVersion[]
+  prmVersions         ProcedureReferenceVersion[]
+  attempts            Attempt[]
+  osceStations        OSCEStation[]
+}
+
+model StationAssignment {
+  id          String    @id @default(uuid())
+  stationId   String
+  station     Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  cohortId    String
+  cohort      Cohort    @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  dueDate     DateTime?
+  mandatory   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+}
+
+model RubricVersion {
+  id                 String           @id @default(uuid())
+  stationId          String
+  station            Station          @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  versionNumber      Int              @default(1)
+  isCurrent          Boolean          @default(true)
+  approvedBy         String?
+  approvalDate       DateTime?
+  createdAt          DateTime         @default(now())
+  checklistSteps     ChecklistStep[]
+  parameters         RubricParameter[]
+  attempts           Attempt[]
+}
+
+model ChecklistStep {
+  id              String         @id @default(uuid())
+  rubricVersionId String
+  rubricVersion   RubricVersion  @relation(fields: [rubricVersionId], references: [id], onDelete: Cascade)
+  orderIndex      Int
+  stepCode        String
+  title           String
+  description     String
+  isCritical      Boolean        @default(false)
+  points          Float          @default(10.0)
+}
+
+model RubricParameter {
+  id              String         @id @default(uuid())
+  rubricVersionId String
+  rubricVersion   RubricVersion  @relation(fields: [rubricVersionId], references: [id], onDelete: Cascade)
+  parameterKey    String         // bite_width, entry_angle, stitch_spacing, knot_structure
+  name            String
+  unit            String         // mm, deg, throws, cm
+  targetMin       Float
+  targetMax       Float
+  weight          Float          @default(1.0)
+  measurementType String         // CV_GEOMETRY, SENSOR_TELEMETRY, VISUAL_PROXY
+}
+
+model ProcedureReferenceVersion {
+  id                  String    @id @default(uuid())
+  stationId           String
+  station             Station   @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  versionNumber       Int       @default(1)
+  procedureName       String
+  woundGeometry       Json      // length, width, landmarks, axis
+  needleSpecification Json      // chord length, radius, gauge, taper
+  expectedEntryZone   Json      // polygon / bounding box mm
+  expectedExitZone    Json
+  expectedEntryAngle  Float     // e.g., 85.0 - 95.0 degrees
+  expectedBiteWidth   Float     // e.g., 4.0 mm
+  expectedStitchPitch Float     // e.g., 5.0 mm
+  knotRequirements    Json      // 3 throws (Surgeon's double throw + 2 square throws)
+  approvedBy          String
+  isCurrent           Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  attempts            Attempt[]
+}
+
+model Attempt {
+  id                   String                    @id @default(uuid())
+  stationId            String
+  station              Station                   @relation(fields: [stationId], references: [id])
+  userId               String
+  user                 User                      @relation(fields: [userId], references: [id])
+  rubricVersionId      String
+  rubricVersion        RubricVersion             @relation(fields: [rubricVersionId], references: [id])
+  prmVersionId         String
+  prmVersion           ProcedureReferenceVersion @relation(fields: [prmVersionId], references: [id])
+  osceStationId        String?
+  osceStation          OSCEStation?              @relation(fields: [osceStationId], references: [id])
+  status               AttemptStatus             @default(CREATED)
+  startTime            DateTime                  @default(now())
+  endTime              DateTime?
+  durationSeconds      Int?
+  videoUrl             String?
+  videoStorageKey      String?
+  thumbnailUrl         String?
+  compositeScore       Float?
+  facultyFinalScore    Float?
+  isFacultyVerified    Boolean                   @default(false)
+  verifiedAt           DateTime?
+  verifiedById         String?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  events               AttemptEvent[]
+  trackingSession      TrackingSession?
+  aiAssessment         AIAssessment?
+  facultyReviews       FacultyReview[]
+  scoreOverrides       ScoreOverride[]
+  annotations          FacultyAnnotation[]
+
+  @@index([userId, stationId])
+  @@index([status])
+}
+
+model AttemptEvent {
+  id          String          @id @default(uuid())
+  attemptId   String
+  attempt     Attempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  timestampMs Int
+  state       ProceduralState
+  label       String
+  description String?
+  confidence  Float
+  keyframeRef String?
+  isEvidence  Boolean         @default(false)
+}
+
+model TrackingSession {
+  id               String          @id @default(uuid())
+  attemptId        String          @unique
+  attempt          Attempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  totalFrames      Int
+  processedFps     Float
+  pathLengthCm     Float           // Total instrument travel distance
+  motionSmoothness Float           // Spectral arc length / jerk metric
+  idleTimeSeconds  Float
+  measurements     CVMeasurement[]
+}
+
+model CVMeasurement {
+  id                String          @id @default(uuid())
+  trackingSessionId String
+  trackingSession   TrackingSession @relation(fields: [trackingSessionId], references: [id], onDelete: Cascade)
+  timestampMs       Int
+  frameIndex        Int
+  parameterKey      String
+  observedValue     Float
+  unit              String
+  confidence        Float
+  status            ComplianceStatus
+  measurementMethod String          // CV_2D_CALIBRATED, STEREO_DEPTH, SENSOR_LOADCELL
+}
+
+model AIAssessment {
+  id                   String                   @id @default(uuid())
+  attemptId            String                   @unique
+  attempt              Attempt                  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  modelProvider        String                   @default("gemini-3.8-flash")
+  modelVersion         String                   @default("v2026.1")
+  overallScore         Float
+  checklistScore       Float
+  parameterScore       Float
+  motionEconomyScore   Float
+  clinicalSummary      String
+  strengths            String[]
+  recommendedDrills    String[]
+  confidenceStatus     String                   // HIGH_CONFIDENCE, MODERATE, QUALITY_FLAGGED
+  createdAt            DateTime                 @default(now())
+  checklistAssessments AIChecklistAssessment[]
+  parameterAssessments AIParameterAssessment[]
+  detectedErrors       AIDetectedError[]
+  evidenceItems        AIEvidence[]
+}
+
+model AIChecklistAssessment {
+  id             String       @id @default(uuid())
+  aiAssessmentId String
+  aiAssessment   AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  stepCode       String
+  title          String
+  passed         Boolean
+  confidence     Float
+  evidenceTimeMs Int?
+  rationale      String
+}
+
+model AIParameterAssessment {
+  id             String           @id @default(uuid())
+  aiAssessmentId String
+  aiAssessment   AIAssessment     @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  parameterKey   String
+  name           String
+  expectedRange  String
+  observedValue  String
+  unit           String
+  deviation      Float
+  status         ComplianceStatus
+  confidence     Float
+  clinicalSignificance String
+  evidenceTimeMs Int
+}
+
+model AIDetectedError {
+  id             String       @id @default(uuid())
+  aiAssessmentId String
+  aiAssessment   AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  timestampMs    Int
+  severity       String       // MINOR, MODERATE, CRITICAL
+  errorCode      String       // ASYMMETRIC_BITE, EXCESSIVE_TISSUE_TRAUMA, INSUFFICIENT_KNOT_SQUARE
+  title          String
+  description    String
+  remediation    String
+}
+
+model AIEvidence {
+  id             String       @id @default(uuid())
+  aiAssessmentId String
+  aiAssessment   AIAssessment @relation(fields: [aiAssessmentId], references: [id], onDelete: Cascade)
+  timestampMs    Int
+  title          String
+  frameImageUrl  String
+  metricSummary  String
+  findingType    String       // NEEDLE_ENTRY, NEEDLE_EXIT, KNOT_TIED, CRITICAL_DEVIATION
+}
+
+model FacultyReview {
+  id             String    @id @default(uuid())
+  attemptId      String
+  attempt        Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  reviewer       User      @relation(fields: [reviewerId], references: [id])
+  status         String    // CONFIRMED, REVISED, REJECTED, REASSESSMENT_REQUESTED
+  globalRating   Int       // 1 to 5 Likert Scale (OSATS)
+  feedbackText   String
+  verifiedScore  Float
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model ScoreOverride {
+  id           String    @id @default(uuid())
+  attemptId    String
+  attempt      Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  facultyId    String
+  faculty      User      @relation(fields: [facultyId], references: [id])
+  targetField  String    // OVERALL_SCORE, PARAMETER_BITE_WIDTH, CHECKLIST_STEP_3
+  aiValue      Float
+  facultyValue Float
+  reason       String
+  createdAt    DateTime  @default(now())
+}
+
+model FacultyAnnotation {
+  id          String    @id @default(uuid())
+  attemptId   String
+  attempt     Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  timestampMs Int
+  markerX     Float?    // normalized coordinate 0-1
+  markerY     Float?
+  comment     String
+  category    String    // TECHNIQUE, SAFETY, SPEED, INSTRUMENT_HANDLING
+  createdAt   DateTime  @default(now())
+}
+
+model OSCE {
+  id            String          @id @default(uuid())
+  institutionId String
+  title         String
+  academicTerm  String
+  scheduledDate DateTime
+  durationTotal Int             // minutes
+  status        String          // DRAFT, SCHEDULED, ACTIVE, COMPLETED, ARCHIVED
+  createdAt     DateTime        @default(now())
+  stations      OSCEStation[]
+  cohorts       OSCEAssignment[]
+}
+
+model OSCEStation {
+  id             String    @id @default(uuid())
+  osceId         String
+  osce           OSCE      @relation(fields: [osceId], references: [id], onDelete: Cascade)
+  stationId      String
+  station        Station   @relation(fields: [stationId], references: [id])
+  stationNumber  Int
+  durationMinutes Int      @default(10)
+  examinerId     String?
+  attempts       Attempt[]
+}
+
+model OSCEAssignment {
+  id       String @id @default(uuid())
+  osceId   String
+  osce     OSCE   @relation(fields: [osceId], references: [id], onDelete: Cascade)
+  cohortId String
+  cohort   Cohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // ASSIGNMENT, OSCE, REVIEW_READY, SCORE_OVERRIDE, SYSTEM_ALERT
+  title     String
+  message   String
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model DeviceIntegration {
+  id             String            @id @default(uuid())
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  deviceType     IntegrationType
+  displayName    String
+  endpointConfig Json
+  status         IntegrationStatus @default(CONFIGURED)
+  lastTestedAt   DateTime?
+  lastLatencyMs  Int?
+  lastErrorMessage String?
+  calibrationData Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id])
+  action        String       // SCORE_OVERRIDE, RUBRIC_APPROVED, ATTEMPT_SUBMITTED, VIDEO_ACCESSED
+  entityType    String       // Attempt, Rubric, User, Station
+  entityId      String
+  metadata      Json?
+  ipAddress     String?
+  createdAt     DateTime     @default(now())
+
+  @@index([action, createdAt])
+}
