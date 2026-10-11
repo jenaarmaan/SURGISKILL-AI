@@ -48,6 +48,8 @@ export const DigitalOsceView: React.FC<DigitalOsceViewProps> = ({ exam, onNaviga
     overallPerformance: 4,
   });
 
+  const [isExamCompleted, setIsExamCompleted] = useState(false);
+
   const activeStation = exam.stations[activeStationIndex] || exam.stations[0];
 
   useEffect(() => {
@@ -66,6 +68,9 @@ export const DigitalOsceView: React.FC<DigitalOsceViewProps> = ({ exam, onNaviga
     if (activeStationIndex < exam.stations.length - 1) {
       setActiveStationIndex(activeStationIndex + 1);
       setStationSecondsRemaining(600);
+      setIsTimerRunning(false);
+    } else {
+      setIsExamCompleted(true);
       setIsTimerRunning(false);
     }
   };
@@ -217,11 +222,47 @@ export const DigitalOsceView: React.FC<DigitalOsceViewProps> = ({ exam, onNaviga
               </div>
               <button
                 onClick={handleNextStation}
-                className="rounded-lg bg-teal-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-teal-400 transition"
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  activeStationIndex === exam.stations.length - 1
+                    ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                    : 'bg-teal-500 text-slate-950 hover:bg-teal-400'
+                }`}
               >
-                Submit Station Score &rarr;
+                {activeStationIndex === exam.stations.length - 1
+                  ? 'Finalize OSCE Exam & Save ✓'
+                  : 'Submit Station Score →'}
               </button>
             </div>
+
+            {isExamCompleted && (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-4 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>OSCE Examination Completed & Synchronized</span>
+                </div>
+                <p className="text-slate-300">
+                  All 4 clinical stations for candidate <strong>{selectedStudent}</strong> have been evaluated and recorded. OSATS score synthesis transmitted to the Institutional Residency Registry.
+                </p>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => onNavigate('attempts-list')}
+                    className="rounded-lg bg-teal-500 px-3 py-1 text-xs font-bold text-slate-950 hover:bg-teal-400"
+                  >
+                    View All Performance Reports
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsExamCompleted(false);
+                      setActiveStationIndex(0);
+                      setStationSecondsRemaining(600);
+                    }}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-300 hover:text-white"
+                  >
+                    Evaluate Next Candidate
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {osatsCriteria.map((crit) => {

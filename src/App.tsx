@@ -37,7 +37,7 @@ import {
 import { ApiClient } from './services/apiClient.ts';
 
 function MainAppContent() {
-  const { role, currentUser } = useAuth();
+  const { role, currentUser, switchRole } = useAuth();
 
   const [currentView, setCurrentView] = useState<string>('student-dashboard');
   const [activeStationId, setActiveStationId] = useState<string>('stn_interrupted_suture');
@@ -72,7 +72,9 @@ function MainAppContent() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    (window as any).__navigateToView = handleNavigate;
+    (window as any).__switchRole = switchRole;
+  }, [switchRole]);
 
   const handleNavigate = (view: string, id?: string) => {
     if (view === 'workspace' && id) {

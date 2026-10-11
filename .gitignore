@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 surgiskill-ai---surgical-skills-intelligence-&-digital-osce (2).zip
+__pycache__/
+*.pyc

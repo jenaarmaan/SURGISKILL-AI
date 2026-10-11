@@ -22,6 +22,7 @@ import {
   HelpCircle,
   ExternalLink,
   Code2,
+  Download,
 } from 'lucide-react';
 import { Badge } from '../components/common/Badge.tsx';
 
@@ -199,6 +200,15 @@ export const DocumentationView: React.FC<DocumentationViewProps> = ({ onNavigate
               <Video className="h-4 w-4" />
               <span>Test Live Workspace</span>
             </button>
+            <a
+              href="/SurgiSkill_AI_Presentation.pptx"
+              download="SurgiSkill_AI_Presentation.pptx"
+              className="flex items-center gap-2 rounded-xl border border-teal-500/30 bg-teal-950/40 px-3.5 py-2.5 text-xs font-semibold text-teal-300 hover:bg-teal-900/60 transition"
+              title="Download SurgiSkill AI 16:9 Presentation Deck"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Slide Deck (.pptx)</span>
+            </a>
             <button
               onClick={() => onNavigate('public-home')}
               className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition"

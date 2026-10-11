@@ -76,25 +76,46 @@ export const AttemptReportView: React.FC<AttemptReportViewProps> = ({ attempt, o
           </p>
         </div>
 
-        {/* Score Summary Box */}
-        <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-950 p-4 shrink-0">
-          <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              {attempt.facultyFinalScore ? 'VERIFIED FINAL SCORE' : 'AI COMPOSITE SCORE'}
-            </span>
-            <div className="flex items-baseline justify-end gap-1.5 mt-0.5">
-              <span className="font-mono text-3xl font-extrabold text-teal-400">
-                {attempt.facultyFinalScore || attempt.compositeScore || 78.5}%
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-950 p-4 shrink-0">
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                {attempt.facultyFinalScore ? 'VERIFIED FINAL SCORE' : 'AI COMPOSITE SCORE'}
               </span>
+              <div className="flex items-baseline justify-end gap-1.5 mt-0.5">
+                <span className="font-mono text-3xl font-extrabold text-teal-400">
+                  {attempt.facultyFinalScore || attempt.compositeScore || 78.5}%
+                </span>
+              </div>
+              {hasOverride && (
+                <span className="text-[10px] text-amber-300 block mt-0.5 font-mono">
+                  Overridden from {attempt.compositeScore}% by Faculty
+                </span>
+              )}
             </div>
-            {hasOverride && (
-              <span className="text-[10px] text-amber-300 block mt-0.5 font-mono">
-                Overridden from {attempt.compositeScore}% by Faculty
-              </span>
-            )}
+            <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-3 text-teal-400">
+              <Award className="h-6 w-6" />
+            </div>
           </div>
-          <div className="rounded-xl bg-teal-500/10 border border-teal-500/20 p-3 text-teal-400">
-            <Award className="h-6 w-6" />
+
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <a
+              href="/SurgiSkill_AI_Presentation.pptx"
+              download="SurgiSkill_AI_Presentation.pptx"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
+              title="Download SurgiSkill AI Slide Deck"
+            >
+              <Download className="h-3.5 w-3.5 text-teal-400" />
+              <span>Slide Deck (.pptx)</span>
+            </a>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-teal-500/30 bg-teal-950/40 px-3.5 py-2 text-xs font-semibold text-teal-300 hover:bg-teal-900/60 transition"
+              title="Print or Save PDF of this Attempt Report"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Print / PDF</span>
+            </button>
           </div>
         </div>
       </div>
