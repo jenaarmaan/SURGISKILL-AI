@@ -145,16 +145,16 @@ def generate_doc_1():
     gen_headers = ["Parameter / Field", "Particulars of Applicant"]
     gen_widths = [Inches(2.5), Inches(4.5)]
     gen_data = [
-        ("1. Name of the Lead Applicant", "Dr. VIJAYANANDA"),
-        ("   Designation & Department", "Lead Investigator & Clinical Simulation Director, Department of General Surgery"),
+        ("1. Name of Applicant 1", "Dr. VIJAYANANDA"),
+        ("   Designation & Department", "Applicant 1 & Clinical Simulation Director, Department of General Surgery"),
         ("   Institution / Organization", "Center for Surgical Simulation & Medical Education"),
         ("   Official Address for Communication", "Simulation Lab Complex, Health Sciences Campus, Pin - 560029, India"),
         ("   Email & Contact Number", "lead.applicant@surgiskill.edu.in | +91-98450-XXXXX"),
-        ("2. Name of the Co-Applicant", "Armaan Samir Jena"),
-        ("   Designation & Organization", "System Architect & Lead Engineer, SurgiSkill AI Technical Team"),
+        ("2. Name of Applicant 2", "Armaan Samir Jena"),
+        ("   Designation & Organization", "Applicant 2 & System Architect, SurgiSkill AI Technical Team"),
         ("   Email & Contact Number", "armaan.jena08@gmail.com | +91-98712-XXXXX"),
         ("3. Title of the Technology / Innovation", "SurgiSkill AI: An AI-Assisted Surgical Suturing Skills Training and Assessment System"),
-        ("4. Nature of Applicant Entity", "Individual Academic Innovator / Clinical Research Team in collaboration with Engineering Lead"),
+        ("4. Nature of Applicant Entity", "Academic Innovation Team — Applicant 1 (Clinical Lead) & Applicant 2 (Engineering Lead)"),
         ("5. NRDC Support Category Applied For", "Category 2: Process Trials / Field Trials / Testing / Analysis"),
         ("6. Total Amount of Financial Assistance Requested", "₹1,70,000 (Rupees One Lakh Seventy Thousand Only)"),
         ("7. Proposed Duration of Testing / Field Trials", "6 Months (Two Quarters: Q1 - Q2)")
@@ -210,10 +210,10 @@ def generate_doc_1():
     sig_tbl.cell(1, 1).width = Inches(3.5)
 
     p0 = sig_tbl.cell(0, 0).paragraphs[0]
-    p0.add_run("Signature of Lead Applicant:\n\n___________________________________\nDr. VIJAYANANDA\nLead Applicant & Clinical Investigator\nDate: 11/10/2026")
+    p0.add_run("Signature of Applicant 1:\n\n___________________________________\nDr. VIJAYANANDA\nApplicant 1 & Clinical Investigator\nDate: 11/10/2026")
     
     p1 = sig_tbl.cell(0, 1).paragraphs[0]
-    p1.add_run("Signature of Co-Applicant:\n\n___________________________________\nArmaan Samir Jena\nCo-Applicant & System Architect\nDate: 11/10/2026")
+    p1.add_run("Signature of Applicant 2:\n\n___________________________________\nArmaan Samir Jena\nApplicant 2 & System Architect\nDate: 11/10/2026")
 
     p2 = sig_tbl.cell(1, 0).paragraphs[0]
     p2.add_run("Endorsement from Head of Department / Center:\n\n___________________________________\nHead of Department of General Surgery\nSeal & Signature")
@@ -250,22 +250,22 @@ def generate_doc_2():
     wp_data = [
         ("Q1: Month 1", "WP1: Experimental Jig & Bench Protocol Setup",
          "Procurement of multi-layer silicone pads and calibration targets. Fabrication of rigid overhead camera mount. Laser-micrometer baseline calibration (0.124 mm/px scale validation).",
-         "Armaan Samir Jena (Engineering Lead)"),
+         "Armaan Samir Jena (Applicant 2 / Engineering Lead)"),
         ("Q1: Month 2", "WP2: Optical Calibration & Lighting Stress Trials",
          "Execution of 60 standardized suture bench trials under 4 controlled lighting levels (300lx, 600lx, 900lx, 1200lx). Quantitative measurement of needle tip localization error and angle variance.",
-         "Armaan Samir Jena & Research Staff"),
+         "Armaan Samir Jena (Applicant 2) & Research Staff"),
         ("Q1: Month 3", "WP3: Needle Curvature Repeatability Benchmark",
          "Testing repeatability across 4 standard surgical needle geometries (3/8 circle, 1/2 circle, reverse cutting, round-bodied). Mid-term technical review and milestone M1 report compilation.",
-         "Dr. VIJAYANANDA (Clinical Lead)"),
+         "Dr. VIJAYANANDA (Applicant 1 / Clinical Lead)"),
         ("Q2: Month 4", "WP4: Multi-Rater Faculty Inter-Rater Reliability Trials",
          "Conducting 60 resident simulation trials evaluated concurrently by 3 independent blinded attending surgeons using the Faculty Review Console. Calculation of Intraclass Correlation (ICC) and Bland-Altman limits.",
-         "Dr. VIJAYANANDA & Faculty Reviewers"),
+         "Dr. VIJAYANANDA (Applicant 1) & Faculty Reviewers"),
         ("Q2: Month 5", "WP5: Occlusion & Failure-Mode Stress Analysis",
          "Evaluating tracking drop-out under rapid suture knot cinching, instrument hand-crossing, and fluid visual distortion. Testing automated fallback and recovery latency in cvEngine.ts.",
-         "Armaan Samir Jena & Simulation Staff"),
+         "Armaan Samir Jena (Applicant 2) & Simulation Staff"),
         ("Q2: Month 6", "WP6: Statistical Synthesis, Audit & Final Reporting",
          "Independent statistical verification of concordance data. Compilation of final technical dossier, CA audited Utilization Certificate (UC), and institutional commercialization roadmap.",
-         "Dr. VIJAYANANDA & Armaan Samir Jena")
+         "Dr. VIJAYANANDA (Applicant 1) & Armaan Samir Jena (Applicant 2)")
     ]
     format_table(wp_tbl, wp_widths, wp_headers, wp_data)
     doc.add_paragraph().paragraph_format.space_after = Pt(8)
@@ -374,6 +374,14 @@ def generate_doc_3():
         "simulation materials, testing hardware rigs, trial coordination, and mandatory statistical auditing."
     )
 
+    sig_tbl = doc.add_table(rows=1, cols=2)
+    sig_tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    sig_tbl.autofit = False
+    sig_tbl.cell(0, 0).width = Inches(3.5)
+    sig_tbl.cell(0, 1).width = Inches(3.5)
+    sig_tbl.cell(0, 0).paragraphs[0].add_run("Submitted by Applicant 1:\n\n___________________________________\nDr. VIJAYANANDA\nApplicant 1 & Clinical Lead\nDate: 11/10/2026")
+    sig_tbl.cell(0, 1).paragraphs[0].add_run("Submitted by Applicant 2:\n\n___________________________________\nArmaan Samir Jena\nApplicant 2 & System Architect\nDate: 11/10/2026")
+
     doc_path = os.path.join(DOC_DIR, "03_Itemised_Budget_Annexure.docx")
     doc.save(doc_path)
     print(f"Generated: {doc_path}")
@@ -457,6 +465,14 @@ def generate_doc_4():
         "2. The open-source libraries used (React 19, Tailwind, Express, Google GenAI SDK, Lucide) possess non-restrictive permissive licenses (MIT / Apache-2.0).\n"
         "3. Freedom-to-Operate (FTO) is established for simulation and educational testing. No third-party patents block Category 2 experimental trials."
     )
+
+    sig_tbl = doc.add_table(rows=1, cols=2)
+    sig_tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    sig_tbl.autofit = False
+    sig_tbl.cell(0, 0).width = Inches(3.5)
+    sig_tbl.cell(0, 1).width = Inches(3.5)
+    sig_tbl.cell(0, 0).paragraphs[0].add_run("Verified by Applicant 1:\n\n___________________________________\nDr. VIJAYANANDA\nApplicant 1 & Clinical Lead\nDate: 11/10/2026")
+    sig_tbl.cell(0, 1).paragraphs[0].add_run("Verified by Applicant 2:\n\n___________________________________\nArmaan Samir Jena\nApplicant 2 & System Architect\nDate: 11/10/2026")
 
     doc_path = os.path.join(DOC_DIR, "04_Literature_Survey_and_Patent_Search_Report.docx")
     doc.save(doc_path)
@@ -562,6 +578,16 @@ def generate_doc_5():
         "These videos serve as the standardized reference input feeds for repeatable testing and benchmark validation."
     )
 
+    doc.add_heading("5. Technical Verification & Authenticity Sign-off", level=1)
+    doc.add_paragraph("We hereby verify that the screenshots, build logs, and API diagnostic telemetry presented above represent unedited, reproducible outputs from the local prototype environment:")
+    sig_tbl = doc.add_table(rows=1, cols=2)
+    sig_tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    sig_tbl.autofit = False
+    sig_tbl.cell(0, 0).width = Inches(3.5)
+    sig_tbl.cell(0, 1).width = Inches(3.5)
+    sig_tbl.cell(0, 0).paragraphs[0].add_run("Verified by Applicant 1:\n\n___________________________________\nDr. VIJAYANANDA\nApplicant 1 & Clinical Lead\nDate: 11/10/2026")
+    sig_tbl.cell(0, 1).paragraphs[0].add_run("Verified by Applicant 2:\n\n___________________________________\nArmaan Samir Jena\nApplicant 2 & System Architect\nDate: 11/10/2026")
+
     doc_path = os.path.join(DOC_DIR, "05_Prototype_Evidence_Pack.docx")
     doc.save(doc_path)
     print(f"Generated: {doc_path}")
@@ -595,8 +621,8 @@ def generate_doc_6():
     add_callout(
         doc,
         "INSTITUTIONAL NO OBJECTION CERTIFICATE (NOC)",
-        "This is to certify that the Center for Surgical Simulation & Medical Education has NO OBJECTION to Dr. VIJAYANANDA (Lead Applicant) "
-        "and Armaan Samir Jena (Co-Applicant) submitting the project proposal 'SurgiSkill AI' to the National Research Development Corporation (NRDC) "
+        "This is to certify that the Center for Surgical Simulation & Medical Education has NO OBJECTION to Applicant 1: Dr. VIJAYANANDA "
+        "and Applicant 2: Armaan Samir Jena submitting the project proposal 'SurgiSkill AI' to the National Research Development Corporation (NRDC) "
         "for financial assistance under Category 2 (Process Trials / Field Trials / Testing / Analysis).\n\n"
         "The Institution agrees to provide basic laboratory infrastructure, simulation facility space, electrical power, and internet connectivity "
         "for the execution of the proposed testing program. The financial assistance of ₹1,70,000, if sanctioned, will be accounted for as per "
@@ -610,8 +636,8 @@ def generate_doc_6():
     id_headers = ["Applicant Role", "Full Legal Name & Official Designation", "Identity Verification Document Reference"]
     id_widths = [Inches(1.8), Inches(2.7), Inches(2.5)]
     id_data = [
-        ("Lead Applicant", "Dr. VIJAYANANDA\nClinical Simulation Director & Professor of Surgery", "PAN Card: XXXXX1234X | Aadhaar: XXXX-XXXX-4567\nMedical Registration: KMC/1998/XXXXX"),
-        ("Co-Applicant", "Armaan Samir Jena\nSystem Architect & Lead Software Engineer", "PAN Card: XXXXX5678X | Aadhaar: XXXX-XXXX-8910\nGovernment Recognized Photo Identity")
+        ("Applicant 1", "Dr. VIJAYANANDA\nClinical Simulation Director & Professor of Surgery", "PAN Card: XXXXX1234X | Aadhaar: XXXX-XXXX-4567\nMedical Registration: KMC/1998/XXXXX"),
+        ("Applicant 2", "Armaan Samir Jena\nSystem Architect & Lead Software Engineer", "PAN Card: XXXXX5678X | Aadhaar: XXXX-XXXX-8910\nGovernment Recognized Photo Identity")
     ]
     format_table(id_tbl, id_widths, id_headers, id_data)
     doc.add_paragraph().paragraph_format.space_after = Pt(8)
@@ -623,7 +649,7 @@ def generate_doc_6():
     bank_headers = ["Banking Parameter", "Verified Account Particulars"]
     bank_widths = [Inches(2.5), Inches(4.5)]
     bank_data = [
-        ("Account Name (as per Bank Passbook)", "SurgiSkill AI Research & Testing Account / Dr. VIJAYANANDA"),
+        ("Account Name (as per Bank Passbook)", "SurgiSkill AI Research & Testing Account / Dr. VIJAYANANDA (Applicant 1)"),
         ("Bank Name", "State Bank of India (SBI)"),
         ("Branch Name & Address", "Medical Campus Branch, Bengaluru, Karnataka, Pin - 560029"),
         ("Bank Account Number", "38491029481 (Dedicated Project Savings Account)"),
@@ -641,6 +667,14 @@ def generate_doc_6():
         "and recorded training videos in simulation laboratories. No animal tissue, human patients, or invasive clinical procedures "
         "are involved. Therefore, institutional clinical trial ethics committee (IEC) clearance for drug/human trials is exempt as per ICMR guidelines."
     )
+
+    sig_tbl = doc.add_table(rows=1, cols=2)
+    sig_tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    sig_tbl.autofit = False
+    sig_tbl.cell(0, 0).width = Inches(3.5)
+    sig_tbl.cell(0, 1).width = Inches(3.5)
+    sig_tbl.cell(0, 0).paragraphs[0].add_run("Signature of Applicant 1:\n\n___________________________________\nDr. VIJAYANANDA\nApplicant 1 & Clinical Lead\nDate: 11/10/2026")
+    sig_tbl.cell(0, 1).paragraphs[0].add_run("Signature of Applicant 2:\n\n___________________________________\nArmaan Samir Jena\nApplicant 2 & System Architect\nDate: 11/10/2026")
 
     doc_path = os.path.join(DOC_DIR, "06_Applicant_Compliance_Pack.docx")
     doc.save(doc_path)
@@ -709,8 +743,8 @@ def generate_doc_7():
         "We solemnly declare that the statements made in this Advantages Annexure and Other-Funding Disclosure are true, complete, "
         "and correct to the best of our knowledge and belief. We understand that any false declaration will lead to immediate cancellation "
         "of the grant, blacklisting, and recovery of funds with penal interest as per government rules.\n\n"
-        "Signature of Lead Applicant: __________________________ (Dr. VIJAYANANDA)\n"
-        "Signature of Co-Applicant:  __________________________ (Armaan Samir Jena)\n"
+        "Signature of Applicant 1: __________________________ (Dr. VIJAYANANDA)\n"
+        "Signature of Applicant 2: __________________________ (Armaan Samir Jena)\n"
         "Date: 11/10/2026 | Place: Bengaluru, India"
     )
 

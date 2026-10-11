@@ -133,10 +133,10 @@ def build_nrdc_doc():
 
     # Control Table
     ctrl_tbl = doc.add_table(rows=1, cols=4)
-    ctrl_headers = ["Lead Applicant", "Co-Applicant", "Project Identifier", "Submission Date"]
+    ctrl_headers = ["Applicant 1", "Applicant 2", "Project Identifier", "Submission Date"]
     ctrl_widths = [Inches(1.8), Inches(1.8), Inches(1.8), Inches(1.6)]
     ctrl_data = [
-        ("Dr. VIJAYANANDA\n(Lead Applicant)", "Armaan Samir Jena\n(Co-Applicant / System Architect)", "SurgiSkill AI\n(Version 2026.1 Clinical)", "11/10/2026\nDraft 1.0 (Verified)")
+        ("Applicant 1:\nDr. VIJAYANANDA\n(Clinical Lead)", "Applicant 2:\nArmaan Samir Jena\n(System Architect)", "SurgiSkill AI\n(Version 2026.1 Clinical)", "11/10/2026\nDraft 1.0 (Verified)")
     ]
     format_table(ctrl_tbl, ctrl_widths, ctrl_headers, ctrl_data, header_bg="0F172A")
     doc.add_paragraph().paragraph_format.space_after = Pt(8)
@@ -625,8 +625,8 @@ def build_nrdc_doc():
     app_headers = ["Administrative Field", "Verified Application Record"]
     app_widths = [Inches(2.5), Inches(4.5)]
     app_data = [
-        ("Lead Applicant", "Dr. VIJAYANANDA (Lead Applicant)"),
-        ("Co-Applicant & System Architect", "Armaan Samir Jena (Co-Applicant)"),
+        ("Applicant 1", "Dr. VIJAYANANDA (Applicant 1)"),
+        ("Applicant 2", "Armaan Samir Jena (Applicant 2)"),
         ("Project Title", "SurgiSkill AI: An AI-Assisted Surgical Suturing Skills Training and Assessment System"),
         ("NRDC Support Category", "Category 2 — Process Trials / Field Trials / Testing / Analysis"),
         ("Document Version & Date", "Version 2.0 — Verified Technical Description (11/10/2026)"),
@@ -638,7 +638,7 @@ def build_nrdc_doc():
 
     doc.add_heading("Pre-Submission Verification Checklist", level=2)
     checklist_items = [
-        ("☑ Confirm applicant eligibility and ownership/assignment route with NRDC.", "Confirmed for Dr. VIJAYANANDA and Armaan Samir Jena."),
+        ("☑ Confirm applicant eligibility and ownership/assignment route with NRDC.", "Confirmed for Applicant 1 (Dr. VIJAYANANDA) and Applicant 2 (Armaan Samir Jena)."),
         ("☑ Verify actual current implementation status of every component described.", "Verified directly against running codebase (Express on Port 3000, Vite React 19)."),
         ("☑ Attach screenshots, test records and demonstration evidence that exist.", "17 high-resolution screenshots generated and indexed in Document/screenshots/."),
         ("☑ Complete literature survey and patent-search report; cite specific sources.", "Comparative baseline established across OSATS, FLS, and direct observation studies."),

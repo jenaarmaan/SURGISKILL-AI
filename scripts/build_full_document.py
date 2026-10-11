@@ -84,6 +84,38 @@ def build_manual():
         r1.font.size = Pt(8.5)
         r1.font.color.rgb = RGBColor(51, 65, 85)
 
+    doc.add_paragraph().paragraph_format.space_after = Pt(4)
+
+    # Applicant Details Table
+    app_meta_tbl = doc.add_table(rows=2, cols=2)
+    app_meta_tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    app_meta_tbl.autofit = False
+    col_lead_widths = [Inches(3.5), Inches(3.5)]
+    headers_leads = ["APPLICANT 1", "APPLICANT 2"]
+    vals_leads = [
+        "Dr. VIJAYANANDA\nClinical Simulation Director & Professor of Surgery\nDepartment of General Surgery",
+        "Armaan Samir Jena\nSystem Architect & Lead Software Engineer\nSurgiSkill AI Engineering Team"
+    ]
+    for c_idx in range(2):
+        app_meta_tbl.cell(0, c_idx).width = col_lead_widths[c_idx]
+        set_cell_background(app_meta_tbl.cell(0, c_idx), "0D9488")
+        set_cell_margins(app_meta_tbl.cell(0, c_idx), top=70, bottom=70, left=100, right=100)
+        p0 = app_meta_tbl.cell(0, c_idx).paragraphs[0]
+        r0 = p0.add_run(headers_leads[c_idx])
+        r0.font.name = "Arial"
+        r0.font.size = Pt(8.5)
+        r0.bold = True
+        r0.font.color.rgb = RGBColor(255, 255, 255)
+
+        app_meta_tbl.cell(1, c_idx).width = col_lead_widths[c_idx]
+        set_cell_background(app_meta_tbl.cell(1, c_idx), "F0FDFA")
+        set_cell_margins(app_meta_tbl.cell(1, c_idx), top=70, bottom=70, left=100, right=100)
+        p1 = app_meta_tbl.cell(1, c_idx).paragraphs[0]
+        r1 = p1.add_run(vals_leads[c_idx])
+        r1.font.name = "Arial"
+        r1.font.size = Pt(8.5)
+        r1.font.color.rgb = RGBColor(15, 23, 42)
+
     doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
     add_callout_box(
